@@ -1,24 +1,15 @@
 using System.Net;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace AI.Factory.IntegrationTests;
 
-public sealed class HostSmokeTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class HostSmokeTests : IClassFixture<AiFactoryWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly AiFactoryWebApplicationFactory _factory;
 
-    public HostSmokeTests(WebApplicationFactory<Program> factory)
+    public HostSmokeTests(AiFactoryWebApplicationFactory factory)
     {
-        _factory = factory.WithWebHostBuilder(builder =>
-        {
-            builder.ConfigureLogging(logging => logging.ClearProviders());
-            builder.ConfigureServices(services =>
-                services.AddDataProtection().UseEphemeralDataProtectionProvider());
-        });
+        _factory = factory;
     }
 
     [Fact]

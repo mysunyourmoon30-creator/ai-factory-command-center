@@ -1,6 +1,8 @@
 using AI.Factory.Core.Time;
 using AI.Factory.Infrastructure.Identity;
 using AI.Factory.Infrastructure.Persistence;
+using AI.Factory.Core.Security;
+using AI.Factory.Infrastructure.Security;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -22,7 +24,13 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
         services.AddIdentityCore<ApplicationUser>(options => options.User.RequireUniqueEmail = false)
             .AddRoles<IdentityRole<long>>()
-            .AddEntityFrameworkStores<AppDbContext>();
+            .AddEntityFrameworkStores<AppDbContext>()
+            .AddSignInManager();
+
+        services.AddHttpContextAccessor();
+        services.AddScoped<IAuditWriter, AuditWriter>();
+        services.AddScoped<IAuthenticationService, AuthenticationService>();
+        services.AddScoped<IAdminUserService, AdminUserService>();
 
         services.AddSingleton(CreateTimeProvider(configuration, environmentName));
         return services;

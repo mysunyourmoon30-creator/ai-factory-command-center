@@ -1,0 +1,33 @@
+@page "/login"
+@attribute [AllowAnonymous]
+
+<PageTitle>Login</PageTitle>
+
+<h1>Login</h1>
+
+@if (Error == "invalid")
+{
+    <div class="alert alert-danger" role="alert">Invalid username or password.</div>
+}
+
+<form method="post" action="/api/auth/login" data-enhance="false" class="col-md-5">
+    <AntiforgeryToken />
+    <input type="hidden" name="ReturnUrl" value="/" />
+
+    <div class="mb-3">
+        <label class="form-label" for="username">Username</label>
+        <input class="form-control" id="username" name="Username" autocomplete="username" required maxlength="150" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="password">Password</label>
+        <input class="form-control" id="password" name="Password" type="password" autocomplete="current-password" required maxlength="128" />
+    </div>
+
+    <button class="btn btn-primary" type="submit">Login</button>
+</form>
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? Error { get; set; }
+}

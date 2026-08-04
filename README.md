@@ -32,6 +32,16 @@ dotnet test AI.Factory.CommandCenter.sln --no-build
 dotnet ef database update --project src/AI.Factory.Infrastructure --startup-project src/AI.Factory.Infrastructure
 ```
 
+Seed the locked demo identities (safe to run repeatedly):
+
+```powershell
+dotnet run --project src/AI.Factory.Web -- --seed-identity
+```
+
+Demo users are `admin.demo`, `manager.demo`, `planner.demo`, and `viewer.demo`; the locked demo-only password is `Demo@12345`. These credentials must never be reused outside the demo environment.
+
+Authentication uses the single-host Identity cookie with `HttpOnly`, `Secure`, and `SameSite=Lax`. Every form write requires an antiforgery token. API authorization failures return HTTP 401/403 and are written to the append-only audit log.
+
 The schema source of truth is the EF migration under `src/AI.Factory.Infrastructure/Persistence/Migrations`. The generated idempotent fallback is `deploy/database.sql`.
 
 ## Scope discipline

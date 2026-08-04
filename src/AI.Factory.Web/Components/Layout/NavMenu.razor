@@ -1,6 +1,6 @@
 ﻿<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">AI.Factory.Web</a>
+        <a class="navbar-brand" href="">AI Factory</a>
     </div>
 </div>
 
@@ -13,6 +13,26 @@
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </NavLink>
         </div>
+
+        <AuthorizeView>
+            <Authorized Context="authenticationState">
+                <div class="nav-item px-3 text-white small">
+                    @authenticationState.User.Identity?.Name
+                </div>
+                <div class="nav-item px-3">
+                    <form method="post" action="/api/auth/logout" data-enhance="false">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="/login" />
+                        <button class="nav-link btn btn-link" type="submit">Logout</button>
+                    </form>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="login">Login</NavLink>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
 
     </nav>
 </div>
