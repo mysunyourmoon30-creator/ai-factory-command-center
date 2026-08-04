@@ -10,7 +10,8 @@ Updated: 2026-08-04 (Asia/Bangkok)
 | Day 2 authentication | Done | 19/19 automated checks passed; four demo roles seeded twice; cookie, antiforgery, policy, 403, and audit behavior verified | None | Begin Day 3 master data |
 | Day 3 master data | Done | 10 raw materials, 5 balanced formulations, secured CRUD services/API/UI, idempotent LocalDB seed | None | Begin Day 4 Customer Order |
 | Day 4 Customer Order | Done | Secured list/detail/create/update/transition API and UI; 10-order stable-T seed; RowVersion and lifecycle rules verified | None | Begin Day 5 Production Plan |
-| Day 5–14 | Not Started | — | Locked roadmap | Follow the locked sequence |
+| Day 5 Production Plan | Done | Transactional plan/requirement creation, computed batches, unique order plan, secured API/UI, and stable-T seed | None | Begin Day 6 Material Requirement Query |
+| Day 6-14 | Not Started | - | Locked roadmap | Follow the locked sequence |
 
 ## Day 1 acceptance evidence
 
@@ -41,19 +42,19 @@ Updated: 2026-08-04 (Asia/Bangkok)
 
 ## Scope audit
 
-- No Day 5–14 business feature has been implemented.
+- No Day 6-14 business feature has been implemented.
 - Generated Counter and Weather demo pages were removed.
 - No Docker, cloud, microservice, WebAssembly, `.Client`, AI-write, RAG, or additional table scope was added.
 - Foundation tests are verification evidence and are not additions to the 15 locked required business tests.
 
 ## Handoff
 
-- Current module: Customer Order
-- Current task: Day 4 Customer Order
+- Current module: Production Plan
+- Current task: Day 5 Production Plan
 - Status: Done
 - Remaining error: None known
 - Last commit: See `git log -1`
-- Next task: Day 5 Production Plan, required batch, unique plan, and material-requirement transaction
+- Next task: Day 6 Material Requirement Query, cumulative active demand by date, and availability rules
 - Do not change: locked topology, table count, `SourceProductionPlanId` uniqueness rule, or TimeProvider policy
 
 ## Day 2 acceptance evidence
@@ -95,3 +96,17 @@ Updated: 2026-08-04 (Asia/Bangkok)
 - The two locked screens provide filter/table/lifecycle/risk/pagination and create/edit/detail/validation behavior.
 - Canonical LocalDB seed contains exactly 10 orders, preserves `T = 2026-08-04` from `SO-DEMO-001.CreatedAt`, and preserves `SO-DEMO-001 Delivery = T+3` after a second run.
 - Latest verification: 36 passed, 0 failed; build 0 warnings/errors; no schema change was introduced.
+
+## Day 5 acceptance evidence
+
+- `IProductionPlanService` is shared by Blazor and API endpoints; the Production Plan component has no `DbContext` access.
+- Authenticated roles can list and view plans; only Admin and Planner can create or transition them.
+- Plan creation requires a Planned Customer Order, a valid machine, and a unique Plan Number and Customer Order.
+- Required Batch is computed with `CEILING(Order Quantity / Batch Size)`; the locked cases 10,000/500 = 20, 1,001/500 = 3, and 800/400 = 2 pass.
+- Material Requirements are server-computed as `Required Batch * Weight Per Batch`; clients cannot supply batch, requirements, lifecycle, or risk values.
+- Production Plan and all Material Requirements are saved in one relational database transaction; duplicate attempts create neither another Plan nor Requirements.
+- Plan lifecycle permits only Planned to InProduction to Completed; RowVersion conflicts return HTTP 409.
+- The single locked Production Plan screen includes plan list, create form, machine assignment, required batches, lifecycle, computed risk, and requirement detail.
+- Canonical LocalDB seed contains three machine references, eight Plans, and 25 Material Requirements. A second run preserves `T`, dates, counts, and uniqueness.
+- `PP-DEMO-001` has 20 required batches, completion `T+5`, computed Critical timing risk, and RM-001 requirement 5,000 kg.
+- Latest verification: 47 passed, 0 failed; build 0 warnings/errors; no schema change was introduced.

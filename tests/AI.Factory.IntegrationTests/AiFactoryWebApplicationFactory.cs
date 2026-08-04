@@ -3,6 +3,7 @@ using AI.Factory.Infrastructure.Persistence;
 using AI.Factory.Infrastructure.MasterData;
 using AI.Factory.Infrastructure.Orders;
 using AI.Factory.Core.Time;
+using AI.Factory.Infrastructure.Production;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -44,6 +45,7 @@ public sealed class AiFactoryWebApplicationFactory : WebApplicationFactory<Progr
         DemoIdentitySeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
         CanonicalMasterDataSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
         CanonicalCustomerOrderSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
+        CanonicalProductionPlanSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
         return host;
     }
 }

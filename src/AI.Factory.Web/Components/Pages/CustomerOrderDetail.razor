@@ -5,6 +5,7 @@
 @inject IMasterDataService MasterData
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject TimeProvider TimeProvider
 
 <PageTitle>Customer Order</PageTitle>
 <div class="d-flex justify-content-between align-items-center mb-3"><h1>@(Id is null ? "Create Customer Order" : "Customer Order Detail")</h1><a href="orders">Back to list</a></div>
@@ -43,6 +44,10 @@ else if (Order is not null)
             }
         </Authorized>
     </AuthorizeView>
+    @if (Order.LifecycleStatus == CustomerOrderStatus.Planned && !Order.HasProductionPlan)
+    {
+        <AuthorizeView Policy="@PolicyNames.CanManageProductionPlans"><Authorized Context="planAuthorization"><a class="btn btn-primary mt-3 ms-2" href="production-plans?orderId=@Order.Id">Create production plan</a></Authorized></AuthorizeView>
+    }
 }
 
 @code {
@@ -65,7 +70,7 @@ else if (Order is not null)
         Loading = true; Message = null;
         Formulations = await MasterData.ListFormulationsAsync();
         Order = Id is null ? null : await Orders.GetAsync(Id.Value);
-        Input = Order is null ? new OrderInput { DeliveryDate = DateTime.Today.AddDays(7) } : new OrderInput
+        Input = Order is null ? new OrderInput { DeliveryDate = TimeProvider.GetUtcNow().UtcDateTime.Date.AddDays(7) } : new OrderInput
         {
             OrderNumber = Order.OrderNumber, CustomerName = Order.CustomerName, FormulationId = Order.FormulationId,
             Quantity = Order.Quantity, DeliveryDate = Order.DeliveryDate, Priority = Order.Priority, RowVersion = Order.RowVersion

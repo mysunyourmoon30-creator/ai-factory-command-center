@@ -70,6 +70,7 @@ public static class EndpointRegistrationExtensions
 
         endpoints.MapMasterDataEndpoints();
         endpoints.MapCustomerOrderEndpoints();
+        endpoints.MapProductionPlanEndpoints();
 
         return endpoints;
     }

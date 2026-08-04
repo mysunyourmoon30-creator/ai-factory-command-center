@@ -1,0 +1,118 @@
+@page "/production-plans"
+@attribute [Authorize]
+@inject IProductionPlanService ProductionPlans
+@inject ICustomerOrderService CustomerOrders
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject TimeProvider TimeProvider
+
+<PageTitle>Production Plan</PageTitle>
+<h1>Production Plan</h1>
+@if (!string.IsNullOrWhiteSpace(Message)) { <div class="alert alert-info">@Message</div> }
+
+<AuthorizeView Policy="@PolicyNames.CanManageProductionPlans">
+    <Authorized Context="createAuthorization">
+        <h2 class="h4 mt-4">Create Plan</h2>
+        @if (EligibleOrders.Count == 0)
+        {
+            <div class="alert alert-light">No Planned customer order without a production plan is available.</div>
+        }
+        else
+        {
+            <EditForm Model="Input" OnValidSubmit="CreateAsync">
+                <DataAnnotationsValidator /><ValidationSummary />
+                <div class="row g-2">
+                    <div class="col-md-3"><label class="form-label">Plan number</label><InputText class="form-control" @bind-Value="Input.PlanNumber" /></div>
+                    <div class="col-md-3"><label class="form-label">Customer order</label><InputSelect class="form-select" @bind-Value="Input.CustomerOrderId"><option value="0">Select order</option>@foreach (var order in EligibleOrders) { <option value="@order.Id">@order.OrderNumber - @order.FormulationCode (@order.Quantity.ToString("N3"))</option> }</InputSelect></div>
+                    <div class="col-md-3"><label class="form-label">Machine assignment</label><InputSelect class="form-select" @bind-Value="Input.MachineId"><option value="0">Select machine</option>@foreach (var machine in Machines) { <option value="@machine.Id">@machine.Code - @machine.Name</option> }</InputSelect></div>
+                    <div class="col-md-3"><label class="form-label">Planned completion</label><InputDate class="form-control" @bind-Value="Input.PlannedCompletionDate" /></div>
+                </div>
+                <button class="btn btn-primary mt-2" type="submit">Create plan and requirements</button>
+            </EditForm>
+        }
+    </Authorized>
+</AuthorizeView>
+
+<h2 class="h4 mt-4">Plan List / Production Risk Report</h2>
+@if (Plans.Count == 0) { <div class="alert alert-light">No production plans found.</div> }
+else
+{
+    <table class="table table-striped align-middle">
+        <thead><tr><th>Plan</th><th>Order</th><th>Machine</th><th>Required Batch</th><th>Completion</th><th>Lifecycle</th><th>Risk</th><th></th></tr></thead>
+        <tbody>@foreach (var plan in Plans) {
+            <tr><td>@plan.PlanNumber</td><td>@plan.OrderNumber</td><td>@plan.MachineCode</td><td>@plan.RequiredBatch</td><td>@plan.PlannedCompletionDate.ToString("yyyy-MM-dd")</td>
+                <td><span class="badge text-bg-secondary">@plan.LifecycleStatus</span></td><td><span class="badge @RiskClass(plan.RiskStatus)">@plan.RiskStatus</span></td>
+                <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => Selected = plan">Detail</button></td></tr>
+        }</tbody>
+    </table>
+}
+
+@if (Selected is not null)
+{
+    <h2 class="h4 mt-4">@Selected.PlanNumber Detail</h2>
+    <dl class="row"><dt class="col-sm-3">Order / formulation</dt><dd class="col-sm-9">@Selected.OrderNumber / @Selected.FormulationCode</dd>
+        <dt class="col-sm-3">Quantity / required batch</dt><dd class="col-sm-9">@Selected.OrderQuantity.ToString("N3") / @Selected.RequiredBatch batch(es)</dd>
+        <dt class="col-sm-3">Machine</dt><dd class="col-sm-9">@Selected.MachineCode - @Selected.MachineName</dd></dl>
+    <table class="table table-sm"><thead><tr><th>Raw Material</th><th class="text-end">Required</th><th class="text-end">Current Stock</th><th class="text-end">Reserved</th></tr></thead>
+        <tbody>@foreach (var material in Selected.MaterialRequirements) { <tr><td>@material.RawMaterialCode - @material.RawMaterialName</td><td class="text-end">@material.RequiredQuantity.ToString("N3") @material.Unit</td><td class="text-end">@material.CurrentStock.ToString("N3")</td><td class="text-end">@material.ReservedStock.ToString("N3")</td></tr> }</tbody></table>
+    <AuthorizeView Policy="@PolicyNames.CanManageProductionPlans">
+        <Authorized Context="transitionAuthorization">
+            @if (NextStatus is not null) { <button class="btn btn-outline-primary" @onclick="TransitionAsync">Move plan to @NextStatus</button> }
+        </Authorized>
+    </AuthorizeView>
+}
+
+@code {
+    [Parameter, SupplyParameterFromQuery(Name = "orderId")] public long? RequestedOrderId { get; set; }
+    private IReadOnlyCollection<ProductionPlanDto> Plans = [];
+    private IReadOnlyCollection<CustomerOrderDto> EligibleOrders = [];
+    private IReadOnlyCollection<MachineOptionDto> Machines = [];
+    private ProductionPlanDto? Selected;
+    private PlanInput Input = new();
+    private string? Message;
+    private ProductionPlanStatus? NextStatus => Selected?.LifecycleStatus switch { ProductionPlanStatus.Planned => ProductionPlanStatus.InProduction, ProductionPlanStatus.InProduction => ProductionPlanStatus.Completed, _ => null };
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+    private async Task ReloadAsync()
+    {
+        Plans = await ProductionPlans.ListAsync();
+        Machines = await ProductionPlans.ListMachinesAsync();
+        var planned = await CustomerOrders.ListAsync(new(LifecycleStatus: CustomerOrderStatus.Planned, PageSize: 100));
+        EligibleOrders = planned.Items.Where(x => !x.HasProductionPlan).ToArray();
+        Input = new PlanInput { CustomerOrderId = RequestedOrderId is not null && EligibleOrders.Any(x => x.Id == RequestedOrderId) ? RequestedOrderId.Value : 0, PlannedCompletionDate = TimeProvider.GetUtcNow().UtcDateTime.Date.AddDays(2) };
+    }
+
+    private async Task CreateAsync()
+    {
+        try
+        {
+            Selected = await ProductionPlans.CreateAsync(new(Input.PlanNumber, Input.CustomerOrderId, Input.MachineId, Input.PlannedCompletionDate), await CurrentActorAsync());
+            Message = "Production plan and material requirements created.";
+            await ReloadAsync();
+            Selected = Plans.Single(x => x.Id == Selected.Id);
+        }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+    }
+
+    private async Task TransitionAsync()
+    {
+        if (Selected is null || NextStatus is null) return;
+        try
+        {
+            Selected = await ProductionPlans.TransitionAsync(Selected.Id, new(NextStatus.Value, Selected.RowVersion), await CurrentActorAsync());
+            Message = $"Production plan moved to {Selected?.LifecycleStatus}.";
+            Plans = await ProductionPlans.ListAsync();
+            if (Selected is not null) Selected = Plans.Single(x => x.Id == Selected.Id);
+        }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+    }
+
+    private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+    private static string RiskClass(RiskStatus risk) => risk switch { RiskStatus.Critical => "text-bg-danger", RiskStatus.Warning => "text-bg-warning", _ => "text-bg-success" };
+    private sealed class PlanInput
+    {
+        [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(30)] public string PlanNumber { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Range(1, long.MaxValue)] public long CustomerOrderId { get; set; }
+        [System.ComponentModel.DataAnnotations.Range(1, long.MaxValue)] public long MachineId { get; set; }
+        public DateTime PlannedCompletionDate { get; set; }
+    }
+}

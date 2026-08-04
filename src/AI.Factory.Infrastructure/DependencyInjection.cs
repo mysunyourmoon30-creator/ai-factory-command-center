@@ -7,6 +7,8 @@ using AI.Factory.Core.MasterData;
 using AI.Factory.Infrastructure.MasterData;
 using AI.Factory.Core.Orders;
 using AI.Factory.Infrastructure.Orders;
+using AI.Factory.Core.Production;
+using AI.Factory.Infrastructure.Production;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -37,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<IAdminUserService, AdminUserService>();
         services.AddScoped<IMasterDataService, MasterDataService>();
         services.AddScoped<ICustomerOrderService, CustomerOrderService>();
+        services.AddScoped<IProductionPlanService, ProductionPlanService>();
         services.AddSingleton<IOrderRiskCalculator, OrderRiskCalculator>();
 
         services.AddSingleton(CreateTimeProvider(configuration, environmentName));
