@@ -1,5 +1,6 @@
 using AI.Factory.Infrastructure.Identity;
 using AI.Factory.Infrastructure.Persistence;
+using AI.Factory.Infrastructure.MasterData;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -37,6 +38,7 @@ public sealed class AiFactoryWebApplicationFactory : WebApplicationFactory<Progr
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         dbContext.Database.EnsureCreated();
         DemoIdentitySeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
+        CanonicalMasterDataSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
         return host;
     }
 }

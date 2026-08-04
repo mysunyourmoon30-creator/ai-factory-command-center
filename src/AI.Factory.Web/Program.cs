@@ -2,6 +2,7 @@ using AI.Factory.Api;
 using AI.Factory.Infrastructure;
 using AI.Factory.Infrastructure.Identity;
 using AI.Factory.Infrastructure.Persistence;
+using AI.Factory.Infrastructure.MasterData;
 using AI.Factory.Web.Components;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Antiforgery;
@@ -74,12 +75,16 @@ builder.Services.AddAiFactoryAuthorization();
 
 var app = builder.Build();
 
-if (args.Contains("--seed-identity", StringComparer.OrdinalIgnoreCase))
+if (args.Contains("--seed-identity", StringComparer.OrdinalIgnoreCase) || args.Contains("--seed-master-data", StringComparer.OrdinalIgnoreCase))
 {
     await using var scope = app.Services.CreateAsyncScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await dbContext.Database.MigrateAsync();
     await DemoIdentitySeeder.SeedAsync(scope.ServiceProvider);
+    if (args.Contains("--seed-master-data", StringComparer.OrdinalIgnoreCase))
+    {
+        await CanonicalMasterDataSeeder.SeedAsync(scope.ServiceProvider);
+    }
     return;
 }
 
@@ -104,7 +109,9 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/api"),
+    branch => branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 app.UseHttpsRedirection();
 
 app.UseRateLimiter();

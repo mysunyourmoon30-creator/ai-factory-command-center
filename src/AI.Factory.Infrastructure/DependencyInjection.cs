@@ -3,6 +3,8 @@ using AI.Factory.Infrastructure.Identity;
 using AI.Factory.Infrastructure.Persistence;
 using AI.Factory.Core.Security;
 using AI.Factory.Infrastructure.Security;
+using AI.Factory.Core.MasterData;
+using AI.Factory.Infrastructure.MasterData;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -31,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<IAdminUserService, AdminUserService>();
+        services.AddScoped<IMasterDataService, MasterDataService>();
 
         services.AddSingleton(CreateTimeProvider(configuration, environmentName));
         return services;

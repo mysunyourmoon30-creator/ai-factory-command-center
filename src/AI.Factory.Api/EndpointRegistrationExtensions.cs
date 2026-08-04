@@ -68,6 +68,8 @@ public static class EndpointRegistrationExtensions
                 ? Results.NoContent()
                 : Results.NotFound());
 
+        endpoints.MapMasterDataEndpoints();
+
         return endpoints;
     }
 

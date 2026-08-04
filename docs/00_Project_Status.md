@@ -8,7 +8,8 @@ Updated: 2026-08-04 (Asia/Bangkok)
 |---|---|---|---|---|
 | Day 1 foundation | Done | Build: 0 warnings/errors; migration `20260804125506_InitialCreate` applied; idempotent SQL generated | None | Completed |
 | Day 2 authentication | Done | 19/19 automated checks passed; four demo roles seeded twice; cookie, antiforgery, policy, 403, and audit behavior verified | None | Begin Day 3 master data |
-| Day 3–14 | Not Started | — | Locked roadmap | Follow the locked sequence |
+| Day 3 master data | Done | 10 raw materials, 5 balanced formulations, secured CRUD services/API/UI, idempotent LocalDB seed | None | Begin Day 4 Customer Order |
+| Day 4–14 | Not Started | — | Locked roadmap | Follow the locked sequence |
 
 ## Day 1 acceptance evidence
 
@@ -39,19 +40,19 @@ Updated: 2026-08-04 (Asia/Bangkok)
 
 ## Scope audit
 
-- No Day 3–14 business feature has been implemented.
+- No Day 4–14 business feature has been implemented.
 - Generated Counter and Weather demo pages were removed.
 - No Docker, cloud, microservice, WebAssembly, `.Client`, AI-write, RAG, or additional table scope was added.
 - Foundation tests are verification evidence and are not additions to the 15 locked required business tests.
 
 ## Handoff
 
-- Current module: Authentication and Security
-- Current task: Day 2 authentication
+- Current module: Raw Material and Formulation
+- Current task: Day 3 master data
 - Status: Done
 - Remaining error: None known
 - Last commit: See `git log -1`
-- Next task: Day 3 Raw Material, Formulation, validation, and canonical master seed
+- Next task: Day 4 Customer Order, draft-only update, lifecycle transition, and RowVersion
 - Do not change: locked topology, table count, `SourceProductionPlanId` uniqueness rule, or TimeProvider policy
 
 ## Day 2 acceptance evidence
@@ -68,3 +69,15 @@ Updated: 2026-08-04 (Asia/Bangkok)
 - The four demo users were seeded into SQL Server Express LocalDB twice without duplicates.
 - Latest verification: 19 passed, 0 failed; build 0 warnings/errors; formatting passed; no pending EF model changes.
 - Gate 1 — Foundation is complete.
+
+## Day 3 acceptance evidence
+
+- `IMasterDataService` is the shared application service used by Blazor and API endpoints; UI has no `DbContext` access.
+- Authenticated users can read Raw Materials and Formulations; only Admin and Planner can create or update them.
+- Raw Material validation enforces required lengths, non-negative stock/reserved/lead-time values, unique codes, and RowVersion conflicts.
+- Formulation validation enforces positive unique material weights and exact `SUM(WeightPerBatch) = BatchSize`.
+- The single Material Management screen contains the locked Raw Materials, Formulations, and future Material Requirements tabs.
+- Canonical seed contains exactly 10 locked raw materials and five formulations with balanced recipes.
+- Master seed was executed twice against SQL Server Express LocalDB without duplicate canonical codes.
+- API write endpoints explicitly validate antiforgery tokens; API status-code responses are no longer re-executed through UI error pages.
+- Latest verification: 24 passed, 0 failed; build 0 warnings/errors before final formatting; no schema change was introduced.
