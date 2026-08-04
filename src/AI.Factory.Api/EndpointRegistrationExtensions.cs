@@ -69,6 +69,7 @@ public static class EndpointRegistrationExtensions
                 : Results.NotFound());
 
         endpoints.MapMasterDataEndpoints();
+        endpoints.MapCustomerOrderEndpoints();
 
         return endpoints;
     }

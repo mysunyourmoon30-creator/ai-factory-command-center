@@ -3,6 +3,7 @@ using AI.Factory.Infrastructure;
 using AI.Factory.Infrastructure.Identity;
 using AI.Factory.Infrastructure.Persistence;
 using AI.Factory.Infrastructure.MasterData;
+using AI.Factory.Infrastructure.Orders;
 using AI.Factory.Web.Components;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Antiforgery;
@@ -75,15 +76,22 @@ builder.Services.AddAiFactoryAuthorization();
 
 var app = builder.Build();
 
-if (args.Contains("--seed-identity", StringComparer.OrdinalIgnoreCase) || args.Contains("--seed-master-data", StringComparer.OrdinalIgnoreCase))
+var seedIdentity = args.Contains("--seed-identity", StringComparer.OrdinalIgnoreCase);
+var seedMasterData = args.Contains("--seed-master-data", StringComparer.OrdinalIgnoreCase);
+var seedCustomerOrders = args.Contains("--seed-customer-orders", StringComparer.OrdinalIgnoreCase);
+if (seedIdentity || seedMasterData || seedCustomerOrders)
 {
     await using var scope = app.Services.CreateAsyncScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await dbContext.Database.MigrateAsync();
     await DemoIdentitySeeder.SeedAsync(scope.ServiceProvider);
-    if (args.Contains("--seed-master-data", StringComparer.OrdinalIgnoreCase))
+    if (seedMasterData || seedCustomerOrders)
     {
         await CanonicalMasterDataSeeder.SeedAsync(scope.ServiceProvider);
+    }
+    if (seedCustomerOrders)
+    {
+        await CanonicalCustomerOrderSeeder.SeedAsync(scope.ServiceProvider);
     }
     return;
 }

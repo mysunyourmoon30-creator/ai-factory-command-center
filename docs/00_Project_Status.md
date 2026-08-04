@@ -9,7 +9,8 @@ Updated: 2026-08-04 (Asia/Bangkok)
 | Day 1 foundation | Done | Build: 0 warnings/errors; migration `20260804125506_InitialCreate` applied; idempotent SQL generated | None | Completed |
 | Day 2 authentication | Done | 19/19 automated checks passed; four demo roles seeded twice; cookie, antiforgery, policy, 403, and audit behavior verified | None | Begin Day 3 master data |
 | Day 3 master data | Done | 10 raw materials, 5 balanced formulations, secured CRUD services/API/UI, idempotent LocalDB seed | None | Begin Day 4 Customer Order |
-| Day 4–14 | Not Started | — | Locked roadmap | Follow the locked sequence |
+| Day 4 Customer Order | Done | Secured list/detail/create/update/transition API and UI; 10-order stable-T seed; RowVersion and lifecycle rules verified | None | Begin Day 5 Production Plan |
+| Day 5–14 | Not Started | — | Locked roadmap | Follow the locked sequence |
 
 ## Day 1 acceptance evidence
 
@@ -40,19 +41,19 @@ Updated: 2026-08-04 (Asia/Bangkok)
 
 ## Scope audit
 
-- No Day 4–14 business feature has been implemented.
+- No Day 5–14 business feature has been implemented.
 - Generated Counter and Weather demo pages were removed.
 - No Docker, cloud, microservice, WebAssembly, `.Client`, AI-write, RAG, or additional table scope was added.
 - Foundation tests are verification evidence and are not additions to the 15 locked required business tests.
 
 ## Handoff
 
-- Current module: Raw Material and Formulation
-- Current task: Day 3 master data
+- Current module: Customer Order
+- Current task: Day 4 Customer Order
 - Status: Done
 - Remaining error: None known
 - Last commit: See `git log -1`
-- Next task: Day 4 Customer Order, draft-only update, lifecycle transition, and RowVersion
+- Next task: Day 5 Production Plan, required batch, unique plan, and material-requirement transaction
 - Do not change: locked topology, table count, `SourceProductionPlanId` uniqueness rule, or TimeProvider policy
 
 ## Day 2 acceptance evidence
@@ -81,3 +82,16 @@ Updated: 2026-08-04 (Asia/Bangkok)
 - Master seed was executed twice against SQL Server Express LocalDB without duplicate canonical codes.
 - API write endpoints explicitly validate antiforgery tokens; API status-code responses are no longer re-executed through UI error pages.
 - Latest verification: 24 passed, 0 failed; build 0 warnings/errors before final formatting; no schema change was introduced.
+
+## Day 4 acceptance evidence
+
+- `ICustomerOrderService` is shared by Blazor and API endpoints; Customer Order components have no `DbContext` access.
+- Authenticated roles can list and view orders; only Admin and Planner can create, update, or transition them.
+- General update accepts no Lifecycle or Risk field and succeeds only while the order is Draft with no Production Plan.
+- Once a Production Plan exists, general update is rejected, permanently locking Quantity and FormulationId through that route.
+- Lifecycle transitions permit only Draft to Planned to InProduction to Completed, with no skip or backward transition.
+- RowVersion is required for update and transition; stale API writes return HTTP 409.
+- Computed Risk is server-calculated from the locked production-timing buffer boundaries and is never accepted from the client.
+- The two locked screens provide filter/table/lifecycle/risk/pagination and create/edit/detail/validation behavior.
+- Canonical LocalDB seed contains exactly 10 orders, preserves `T = 2026-08-04` from `SO-DEMO-001.CreatedAt`, and preserves `SO-DEMO-001 Delivery = T+3` after a second run.
+- Latest verification: 36 passed, 0 failed; build 0 warnings/errors; no schema change was introduced.

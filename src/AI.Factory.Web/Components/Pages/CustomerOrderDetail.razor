@@ -1,0 +1,143 @@
+@page "/orders/new"
+@page "/orders/{Id:long}"
+@attribute [Authorize]
+@inject ICustomerOrderService Orders
+@inject IMasterDataService MasterData
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Customer Order</PageTitle>
+<div class="d-flex justify-content-between align-items-center mb-3"><h1>@(Id is null ? "Create Customer Order" : "Customer Order Detail")</h1><a href="orders">Back to list</a></div>
+
+@if (!string.IsNullOrWhiteSpace(Message)) { <div class="alert alert-info">@Message</div> }
+@if (Loading) { <p>Loading...</p> }
+else if (Id is not null && Order is null) { <div class="alert alert-warning">Customer order not found.</div> }
+else if (Id is null)
+{
+    <AuthorizeView Policy="@PolicyNames.CanManageOrders">
+        <Authorized Context="createAuthorization">@OrderForm(true)</Authorized>
+        <NotAuthorized><div class="alert alert-danger">Only Admin or Planner can create customer orders.</div></NotAuthorized>
+    </AuthorizeView>
+}
+else if (Order is not null)
+{
+    <dl class="row">
+        <dt class="col-sm-3">Lifecycle status</dt><dd class="col-sm-9"><span class="badge text-bg-secondary">@Order.LifecycleStatus</span></dd>
+        <dt class="col-sm-3">Computed risk</dt><dd class="col-sm-9"><span class="badge @RiskClass(Order.RiskStatus)">@Order.RiskStatus</span></dd>
+        <dt class="col-sm-3">Production plan</dt><dd class="col-sm-9">@(Order.HasProductionPlan ? "Created — quantity and formulation are permanently locked" : "Not created")</dd>
+    </dl>
+    @if (Order.LifecycleStatus == CustomerOrderStatus.Draft && !Order.HasProductionPlan)
+    {
+        <AuthorizeView Policy="@PolicyNames.CanManageOrders">
+            <Authorized Context="editAuthorization">@OrderForm(false)</Authorized>
+            <NotAuthorized>@ReadOnlyDetail()</NotAuthorized>
+        </AuthorizeView>
+    }
+    else { @ReadOnlyDetail() }
+
+    <AuthorizeView Policy="@PolicyNames.CanManageOrders">
+        <Authorized Context="transitionAuthorization">
+            @if (NextStatus is not null)
+            {
+                <button class="btn btn-outline-primary mt-3" @onclick="TransitionAsync">Move to @NextStatus</button>
+            }
+        </Authorized>
+    </AuthorizeView>
+}
+
+@code {
+    [Parameter] public long? Id { get; set; }
+    private bool Loading = true;
+    private string? Message;
+    private CustomerOrderDto? Order;
+    private IReadOnlyCollection<FormulationDto> Formulations = [];
+    private OrderInput Input = new();
+    private CustomerOrderStatus? NextStatus => Order?.LifecycleStatus switch
+    {
+        CustomerOrderStatus.Draft => CustomerOrderStatus.Planned,
+        CustomerOrderStatus.Planned => CustomerOrderStatus.InProduction,
+        CustomerOrderStatus.InProduction => CustomerOrderStatus.Completed,
+        _ => null
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Loading = true; Message = null;
+        Formulations = await MasterData.ListFormulationsAsync();
+        Order = Id is null ? null : await Orders.GetAsync(Id.Value);
+        Input = Order is null ? new OrderInput { DeliveryDate = DateTime.Today.AddDays(7) } : new OrderInput
+        {
+            OrderNumber = Order.OrderNumber, CustomerName = Order.CustomerName, FormulationId = Order.FormulationId,
+            Quantity = Order.Quantity, DeliveryDate = Order.DeliveryDate, Priority = Order.Priority, RowVersion = Order.RowVersion
+        };
+        Loading = false;
+    }
+
+    private RenderFragment OrderForm(bool create) => @<div>
+        <EditForm Model="Input" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator /><ValidationSummary />
+            <div class="row g-3">
+                <div class="col-md-4"><label class="form-label">Order number</label><InputText class="form-control" @bind-Value="Input.OrderNumber" /></div>
+                <div class="col-md-8"><label class="form-label">Customer name</label><InputText class="form-control" @bind-Value="Input.CustomerName" /></div>
+                <div class="col-md-6"><label class="form-label">Formulation</label><InputSelect class="form-select" @bind-Value="Input.FormulationId"><option value="0">Select formulation</option>@foreach (var formula in Formulations) { <option value="@formula.Id">@formula.Code - @formula.Name</option> }</InputSelect></div>
+                <div class="col-md-3"><label class="form-label">Quantity</label><InputNumber class="form-control" @bind-Value="Input.Quantity" /></div>
+                <div class="col-md-3"><label class="form-label">Delivery date</label><InputDate class="form-control" @bind-Value="Input.DeliveryDate" /></div>
+                <div class="col-md-3"><label class="form-label">Priority</label><InputSelect class="form-select" @bind-Value="Input.Priority"><option>Normal</option><option>High</option><option>Urgent</option></InputSelect></div>
+            </div>
+            <button class="btn btn-primary mt-3" type="submit">@(create ? "Create" : "Save changes")</button>
+        </EditForm>
+    </div>;
+
+    private RenderFragment ReadOnlyDetail() => @<div>
+        <dl class="row">
+            <dt class="col-sm-3">Order number</dt><dd class="col-sm-9">@Order!.OrderNumber</dd>
+            <dt class="col-sm-3">Customer</dt><dd class="col-sm-9">@Order.CustomerName</dd>
+            <dt class="col-sm-3">Formulation</dt><dd class="col-sm-9">@Order.FormulationCode</dd>
+            <dt class="col-sm-3">Quantity</dt><dd class="col-sm-9">@Order.Quantity.ToString("N3")</dd>
+            <dt class="col-sm-3">Delivery date</dt><dd class="col-sm-9">@Order.DeliveryDate.ToString("yyyy-MM-dd")</dd>
+            <dt class="col-sm-3">Priority</dt><dd class="col-sm-9">@Order.Priority</dd>
+        </dl>
+    </div>;
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            if (Id is null)
+            {
+                var created = await Orders.CreateAsync(new(Input.OrderNumber, Input.CustomerName, Input.FormulationId, Input.Quantity, Input.DeliveryDate, Input.Priority), await CurrentActorAsync());
+                Navigation.NavigateTo($"/orders/{created.Id}");
+                return;
+            }
+            Order = await Orders.UpdateAsync(Id.Value, new(Input.OrderNumber, Input.CustomerName, Input.FormulationId, Input.Quantity, Input.DeliveryDate, Input.Priority, Input.RowVersion), await CurrentActorAsync());
+            if (Order is not null) Input.RowVersion = Order.RowVersion;
+            Message = "Customer order updated.";
+        }
+        catch (Exception ex) when (ex is DomainValidationException or ConcurrencyConflictException) { Message = ex.Message; }
+    }
+
+    private async Task TransitionAsync()
+    {
+        if (Order is null || NextStatus is null) return;
+        try
+        {
+            Order = await Orders.TransitionAsync(Order.Id, new(NextStatus.Value, Order.RowVersion), await CurrentActorAsync());
+            if (Order is not null) Input.RowVersion = Order.RowVersion;
+            Message = $"Lifecycle moved to {Order?.LifecycleStatus}.";
+        }
+        catch (Exception ex) when (ex is DomainValidationException or ConcurrencyConflictException) { Message = ex.Message; }
+    }
+
+    private static string RiskClass(RiskStatus risk) => risk switch { RiskStatus.Critical => "text-bg-danger", RiskStatus.Warning => "text-bg-warning", _ => "text-bg-success" };
+    private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+    private sealed class OrderInput
+    {
+        [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(30)] public string OrderNumber { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(150)] public string CustomerName { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Range(1, long.MaxValue)] public long FormulationId { get; set; }
+        [System.ComponentModel.DataAnnotations.Range(typeof(decimal), "0.001", "999999999999999.999")] public decimal Quantity { get; set; }
+        public DateTime DeliveryDate { get; set; }
+        [System.ComponentModel.DataAnnotations.Required] public string Priority { get; set; } = "Normal";
+        public byte[] RowVersion { get; set; } = [];
+    }
+}

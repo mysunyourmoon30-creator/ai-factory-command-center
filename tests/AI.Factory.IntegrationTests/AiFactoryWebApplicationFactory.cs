@@ -1,6 +1,8 @@
 using AI.Factory.Infrastructure.Identity;
 using AI.Factory.Infrastructure.Persistence;
 using AI.Factory.Infrastructure.MasterData;
+using AI.Factory.Infrastructure.Orders;
+using AI.Factory.Core.Time;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -26,7 +28,9 @@ public sealed class AiFactoryWebApplicationFactory : WebApplicationFactory<Progr
             services.RemoveAll<DbContextOptions<AppDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
             services.RemoveAll<AppDbContext>();
+            services.RemoveAll<TimeProvider>();
             services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(_databaseName));
+            services.AddSingleton<TimeProvider>(new FixedTimeProvider(new DateTimeOffset(2026, 8, 4, 0, 0, 0, TimeSpan.Zero)));
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
         });
     }
@@ -39,6 +43,7 @@ public sealed class AiFactoryWebApplicationFactory : WebApplicationFactory<Progr
         dbContext.Database.EnsureCreated();
         DemoIdentitySeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
         CanonicalMasterDataSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
+        CanonicalCustomerOrderSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
         return host;
     }
 }

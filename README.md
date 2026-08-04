@@ -1,6 +1,6 @@
 # AI Factory Command Center
 
-Locked-scope portfolio implementation for a factory planning and risk workflow. The current repository contains the Day 1 foundation only.
+Locked-scope portfolio implementation for a factory planning and risk workflow. Days 1-4 now cover the foundation, authentication, master data, and Customer Orders.
 
 ## Architecture
 
@@ -23,7 +23,7 @@ The default development connection uses Windows authentication with `(localdb)\\
 $env:AI_FACTORY_CONNECTION_STRING = 'your-connection-string'
 ```
 
-## Verify Day 1
+## Verify
 
 ```powershell
 dotnet restore AI.Factory.CommandCenter.sln
@@ -37,6 +37,7 @@ Seed the locked demo identities (safe to run repeatedly):
 ```powershell
 dotnet run --project src/AI.Factory.Web -- --seed-identity
 dotnet run --project src/AI.Factory.Web -- --seed-master-data
+dotnet run --project src/AI.Factory.Web -- --seed-customer-orders
 ```
 
 Demo users are `admin.demo`, `manager.demo`, `planner.demo`, and `viewer.demo`; the locked demo-only password is `Demo@12345`. These credentials must never be reused outside the demo environment.
@@ -44,6 +45,8 @@ Demo users are `admin.demo`, `manager.demo`, `planner.demo`, and `viewer.demo`; 
 Authentication uses the single-host Identity cookie with `HttpOnly`, `Secure`, and `SameSite=Lax`. Every form write requires an antiforgery token. API authorization failures return HTTP 401/403 and are written to the append-only audit log.
 
 The master-data seed adds the locked 10 raw materials and five balanced formulations. It inserts missing codes only and is safe to run repeatedly.
+
+The Customer Order seed adds the locked 10 orders. Its canonical date `T` is stored in `SO-DEMO-001.CreatedAt`, so rerunning the seed neither duplicates orders nor moves their dates.
 
 The schema source of truth is the EF migration under `src/AI.Factory.Infrastructure/Persistence/Migrations`. The generated idempotent fallback is `deploy/database.sql`.
 
