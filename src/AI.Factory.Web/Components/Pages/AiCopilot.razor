@@ -1,0 +1,88 @@
+@page "/ai-copilot"
+@attribute [Authorize]
+@inject ICopilotService Copilot
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>AI Factory Copilot</PageTitle>
+<h1>AI Factory Copilot</h1>
+<p class="text-muted">Read-only. The Copilot can summarize material shortages, delayed production orders, late purchase orders, and today's factory summary — it cannot change any data.</p>
+
+<h2 class="h4">Supported Questions</h2>
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <button class="btn btn-outline-secondary btn-sm" @onclick='() => Question = "What raw materials are short?"'>Material shortages</button>
+    <button class="btn btn-outline-secondary btn-sm" @onclick='() => Question = "Which production orders are delayed?"'>Delayed orders</button>
+    <button class="btn btn-outline-secondary btn-sm" @onclick='() => Question = "Which purchase orders are late?"'>Late purchase orders</button>
+    <button class="btn btn-outline-secondary btn-sm" @onclick='() => Question = "Give me the daily factory summary"'>Daily summary</button>
+</div>
+
+<div class="input-group mb-3">
+    <input class="form-control" @bind="Question" @bind:event="oninput" placeholder="Ask about material shortages, delayed orders, late purchase orders, or today's summary" />
+    <button class="btn btn-primary" type="button" disabled="@IsAsking" @onclick="AskAsync">Ask</button>
+</div>
+
+@if (IsAsking)
+{
+    <div class="alert alert-light">Thinking...</div>
+}
+
+@if (Response is not null)
+{
+    @if (Response.IsFallback)
+    {
+        <h2 class="h4">Fallback State</h2>
+        <div class="alert alert-warning">@Response.Summary</div>
+    }
+    else
+    {
+        <h2 class="h4">AI Response</h2>
+        <p>@Response.Summary</p>
+        @if (Response.RiskLevel is not null)
+        {
+            <p><span class="badge @RiskClass(Response.RiskLevel.Value)">Risk Level: @Response.RiskLevel</span></p>
+        }
+        @if (Response.AffectedOrders.Count > 0)
+        {
+            <h3 class="h5">Affected Orders</h3>
+            <ul>@foreach (var order in Response.AffectedOrders) { <li>@order</li> }</ul>
+        }
+        @if (Response.RecommendedActions.Count > 0)
+        {
+            <h3 class="h5">Recommended Actions</h3>
+            <ul>@foreach (var action in Response.RecommendedActions) { <li>@action</li> }</ul>
+        }
+    }
+}
+
+@code {
+    private string Question = "";
+    private CopilotResponseDto? Response;
+    private bool IsAsking;
+
+    private async Task AskAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Question) || IsAsking) return;
+        IsAsking = true;
+        Response = null;
+        try
+        {
+            Response = await Copilot.AskAsync(new AskCopilotCommand(Question), await CurrentActorAsync());
+        }
+        catch (DomainValidationException exception)
+        {
+            Response = new CopilotResponseDto(exception.Message, null, [], [], IsFallback: true);
+        }
+        finally
+        {
+            IsAsking = false;
+        }
+    }
+
+    private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+
+    private static string RiskClass(RiskStatus risk) => risk switch
+    {
+        RiskStatus.Critical => "text-bg-danger",
+        RiskStatus.Warning => "text-bg-warning",
+        _ => "text-bg-success"
+    };
+}

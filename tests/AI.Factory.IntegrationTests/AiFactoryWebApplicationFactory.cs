@@ -2,10 +2,12 @@ using AI.Factory.Infrastructure.Identity;
 using AI.Factory.Infrastructure.Persistence;
 using AI.Factory.Infrastructure.MasterData;
 using AI.Factory.Infrastructure.Orders;
+using AI.Factory.Core.Copilot;
 using AI.Factory.Core.Time;
 using AI.Factory.Infrastructure.Production;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -24,6 +26,8 @@ public sealed class AiFactoryWebApplicationFactory : WebApplicationFactory<Progr
     {
         builder.UseEnvironment("Testing");
         builder.ConfigureLogging(logging => logging.ClearProviders());
+        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
+            [new KeyValuePair<string, string?>("RateLimits:AiCopilotPermitLimit", "1000")]));
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<AppDbContext>>();
@@ -33,6 +37,8 @@ public sealed class AiFactoryWebApplicationFactory : WebApplicationFactory<Progr
             services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(_databaseName));
             services.AddSingleton<TimeProvider>(new FixedTimeProvider(new DateTimeOffset(2026, 8, 4, 0, 0, 0, TimeSpan.Zero)));
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
+            services.RemoveAll<IOllamaClient>();
+            services.AddScoped<IOllamaClient, FakeOllamaClient>();
         });
     }
 

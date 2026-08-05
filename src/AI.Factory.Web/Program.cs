@@ -12,9 +12,14 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 1_048_576);
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .Enrich.FromLogContext()
+    .WriteTo.Console());
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -35,7 +40,7 @@ builder.Services.Configure<CookieAuthenticationOptions>(IdentityConstants.Applic
     options.SlidingExpiration = true;
     options.Events.OnRedirectToLogin = context =>
     {
-        if (context.Request.Path.StartsWithSegments("/api"))
+        if (IsMachineReadablePath(context.Request.Path))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return Task.CompletedTask;
@@ -46,7 +51,7 @@ builder.Services.Configure<CookieAuthenticationOptions>(IdentityConstants.Applic
     };
     options.Events.OnRedirectToAccessDenied = context =>
     {
-        if (context.Request.Path.StartsWithSegments("/api"))
+        if (IsMachineReadablePath(context.Request.Path))
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             return Task.CompletedTask;
@@ -64,15 +69,27 @@ builder.Services.AddAntiforgery(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.Strict;
 });
-builder.Services.AddRateLimiter(options => options.AddPolicy("authentication", context =>
-    RateLimitPartition.GetFixedWindowLimiter(
-        context.Connection.RemoteIpAddress?.ToString() ?? "local",
-        _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = 10,
-            Window = TimeSpan.FromMinutes(1),
-            QueueLimit = 0
-        })));
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("authentication", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "local",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+    options.AddPolicy("ai-copilot", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "local",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimits:AiCopilotPermitLimit", 10),
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
 builder.Services.AddAiFactoryAuthorization();
 
 var app = builder.Build();
@@ -124,9 +141,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 app.UseWhen(
-    context => !context.Request.Path.StartsWithSegments("/api"),
+    context => !IsMachineReadablePath(context.Request.Path),
     branch => branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 app.UseHttpsRedirection();
+app.UseSerilogRequestLogging();
 
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -140,5 +158,7 @@ app.MapRazorComponents<App>()
 app.MapAiFactoryEndpoints();
 
 app.Run();
+
+static bool IsMachineReadablePath(PathString path) => path.StartsWithSegments("/api") || path.StartsWithSegments("/health");
 
 public partial class Program;

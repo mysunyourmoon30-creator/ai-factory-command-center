@@ -12,4 +12,8 @@
     <ProjectReference Include="..\AI.Factory.Infrastructure\AI.Factory.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+  </ItemGroup>
+
 </Project>

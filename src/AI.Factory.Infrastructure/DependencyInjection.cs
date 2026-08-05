@@ -11,6 +11,8 @@ using AI.Factory.Core.Production;
 using AI.Factory.Infrastructure.Production;
 using AI.Factory.Core.Reporting;
 using AI.Factory.Infrastructure.Reporting;
+using AI.Factory.Core.Copilot;
+using AI.Factory.Infrastructure.Copilot;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -49,8 +51,34 @@ public static class DependencyInjection
         services.AddScoped<IReportExportService, ReportExportService>();
         services.AddSingleton<IOrderRiskCalculator, OrderRiskCalculator>();
 
+        services.AddScoped<IAiTool, MaterialShortageAiTool>();
+        services.AddScoped<IAiTool, DelayedProductionOrderAiTool>();
+        services.AddScoped<IAiTool, LatePurchaseOrderAiTool>();
+        services.AddScoped<IAiTool, DailyFactorySummaryAiTool>();
+        services.AddScoped<ICopilotService, CopilotService>();
+        services.AddSingleton(CreateOllamaHttpClient(configuration));
+        services.AddScoped<IOllamaClient, OllamaClient>();
+        services.AddScoped<IReadinessService, ReadinessService>();
+
         services.AddSingleton(CreateTimeProvider(configuration, environmentName));
         return services;
+    }
+
+    /// <summary>
+    /// One long-lived HttpClient for the single well-known Ollama base address (Microsoft's own
+    /// guidance: socket exhaustion comes from many short-lived clients, not one singleton).
+    /// Refuses a non-localhost base URL at startup (§10.10 "Localhost-only Ollama").
+    /// </summary>
+    private static HttpClient CreateOllamaHttpClient(IConfiguration configuration)
+    {
+        var baseUrl = configuration["Ollama:BaseUrl"] ?? "http://localhost:11434";
+        var baseUri = new Uri(baseUrl, UriKind.Absolute);
+        if (baseUri.Host is not ("localhost" or "127.0.0.1" or "::1"))
+        {
+            throw new InvalidOperationException("Ollama:BaseUrl must be localhost-only.");
+        }
+
+        return new HttpClient { BaseAddress = baseUri, Timeout = TimeSpan.FromSeconds(30) };
     }
 
     private static TimeProvider CreateTimeProvider(IConfiguration configuration, string environmentName)

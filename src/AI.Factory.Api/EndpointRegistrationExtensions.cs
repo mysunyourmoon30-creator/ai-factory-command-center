@@ -1,3 +1,4 @@
+using AI.Factory.Core.Copilot;
 using AI.Factory.Core.Security;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
@@ -14,6 +15,12 @@ public static class EndpointRegistrationExtensions
     {
         endpoints.MapGet("/health/live", () => Results.Ok(new { status = "Healthy" }))
             .AllowAnonymous();
+
+        endpoints.MapGet("/health/ready", async (IReadinessService readiness, CancellationToken cancellationToken) =>
+        {
+            var result = await readiness.CheckAsync(cancellationToken);
+            return result.Healthy ? Results.Ok(result) : Results.Json(result, statusCode: StatusCodes.Status503ServiceUnavailable);
+        }).RequireAuthorization(PolicyNames.CanManageUsers);
 
         var auth = endpoints.MapGroup("/api/auth");
 
@@ -75,6 +82,7 @@ public static class EndpointRegistrationExtensions
         endpoints.MapMaterialShortageEndpoints();
         endpoints.MapProcurementEndpoints();
         endpoints.MapReportEndpoints();
+        endpoints.MapCopilotEndpoints();
 
         return endpoints;
     }
