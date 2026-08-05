@@ -43,6 +43,9 @@ public sealed record PurchaseRequestDto(
     string PlanNumber,
     PurchaseRequestStatus Status,
     DateTime RequestedDate,
+    DateTime? ApprovedDate,
+    string? RejectionReason,
+    bool HasIncomingPurchaseOrder,
     IReadOnlyCollection<PurchaseRequestItemDto> Items,
     byte[] RowVersion);
 

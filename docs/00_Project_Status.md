@@ -13,7 +13,8 @@ Updated: 2026-08-05 (Asia/Bangkok)
 | Day 5 Production Plan | Done | Transactional plan/requirement creation, computed batches, unique order plan, secured API/UI, and stable-T seed | None | Begin Day 6 Material Requirement Query |
 | Day 6 Material Requirement Query | Done | Cumulative active demand by date, Late PO exclusion, Available By Date; 68/68 automated checks passed | None | Begin Day 7 Material Shortage |
 | Day 7 Material Shortage | Done | Shortage 1,250 kg verified on SQL Server; Serializable PR creation returns one success and one 409 under a real race; 86/86 automated checks passed | None | Begin Day 8 Purchase Request approval |
-| Day 8-14 | Not Started | - | Locked roadmap | Follow the locked sequence |
+| Day 8 PR Approval, Incoming PO, Idempotent Receipt | Done | Submit/Approve/Reject wired to locked roles; Test 12 numbers (+300, +200, +0) verified on SQL Server; concurrent Approve returns one 200 and one 409 under a real race; 105/105 automated checks passed | None | Begin Day 9 Dashboard and Reports |
+| Day 9-14 | Not Started | - | Locked roadmap | Follow the locked sequence |
 
 ## Day 1 acceptance evidence
 
@@ -44,20 +45,20 @@ Updated: 2026-08-05 (Asia/Bangkok)
 
 ## Scope audit
 
-- No Day 8-14 business feature has been implemented.
+- No Day 9-14 business feature has been implemented.
 - Generated Counter and Weather demo pages were removed.
 - No Docker, cloud, microservice, WebAssembly, `.Client`, AI-write, RAG, or additional table scope was added.
 - Foundation tests are verification evidence and are not additions to the 15 locked required business tests.
 
 ## Handoff
 
-- Current module: Material Shortage
-- Current task: Day 7 Material Shortage
+- Current module: Procurement
+- Current task: Day 8 PR Approval, Incoming PO, Idempotent Receipt
 - Status: Done
 - Remaining error: None known
 - Last commit: See `git log -1`
-- Next task: Day 8 Purchase Request submit/approve/reject with concurrency, Incoming PO, and idempotent receipt
-- Do not change: locked topology, table count, `SourceProductionPlanId` uniqueness rule, TimeProvider policy, the unclamped On-hand Available used in calculations, or the Serializable isolation used for Purchase Request creation
+- Next task: Day 9 Dashboard and the four report views, KPI from the database, CSV export
+- Do not change: locked topology, table count, `SourceProductionPlanId` uniqueness rule, TimeProvider policy, the unclamped On-hand Available used in calculations, the Serializable isolation used for Purchase Request creation, or the receipt endpoint's cumulative-quantity contract (it must keep receiving the new total, not an increment)
 
 ## Day 2 acceptance evidence
 
@@ -146,3 +147,17 @@ Updated: 2026-08-05 (Asia/Bangkok)
 - All four roles can read shortages; Viewer receives HTTP 403 on creation and anonymous read returns HTTP 401.
 - Purchase Request submit, approve, and reject remain unimplemented and belong to Day 8, as does writing `LatePurchaseOrder` rows into `Alerts`, which Day 11 owns together with alert deduplication.
 - Latest verification: 86 passed, 0 failed; build 0 warnings/errors; formatting passed; no schema change was introduced.
+
+## Day 8 acceptance evidence
+
+- `IProcurementService` is shared by Blazor and API endpoints; the Procurement component has no `DbContext` access.
+- No table, column, or migration was added; the model still contains exactly 14 application entities and the schema constraints already carried the Day 8 requirements (`IncomingPurchaseOrders.PurchaseRequestId` unique, `RowVersion` on both entities, `ReceivedQuantity <= OrderedQuantity`).
+- Purchase Request lifecycle is `Draft → PendingApproval → Approved | Rejected`; Approved and Rejected never transition again, rejection requires a reason, and approval sets `ApprovedByUserId`/`ApprovedDate`.
+- Submit is available to Admin, Manager, and Planner; Approve/Reject and recording an Incoming PO are Admin/Manager only — all three reuse the eleven policies already registered in Day 1, so the locked policy count is unchanged.
+- Incoming Purchase Orders are created only from an Approved request, at most one per request (enforced at the database level and re-checked in the service), with item quantities capped at what the request asked for. `IsLate`/`DelayDays` are computed on read, never stored.
+- Locked Test 12 verified against SQL Server Express LocalDB: raising Received from 0 to 300 then to 500 increased `RawMaterials.CurrentStock` by exactly 300 then 200; resending the same target of 500 changed nothing — the endpoint accepts the new cumulative total, not an increment.
+- Approve concurrency verified against LocalDB: two genuinely concurrent Approve requests on the same PendingApproval record produced exactly one HTTP 200 and one HTTP 409, using the same optimistic `RowVersion` pattern already proven for Production Plan and Customer Order transitions.
+- The Procurement screen's two locked tabs (Purchase Request Approval, Incoming Purchase Order) provide submit/approve/reject actions, incoming-PO creation from an eligible Approved request, and received-quantity entry, each gated by `AuthorizeView` on the same policies enforced server-side.
+- All four roles can read Purchase Requests and Incoming Purchase Orders; Viewer is forbidden on every write; anonymous read returns HTTP 401.
+- Note: the integration suite's `Received_quantity_cannot_decrease_or_exceed_the_ordered_quantity` and `Submit_with_a_wrong_row_version_returns_conflict`-style tests intentionally send a value that can never match the stored `RowVersion` (matching the existing `Stale_plan_row_version_returns_http_conflict`/`Stale_order_row_version_returns_http_conflict` idiom), because the EF Core InMemory provider does not regenerate `RowVersion` on save the way SQL Server does; the genuine concurrent-race guarantee is verified live, as above.
+- Latest verification: 105 passed, 0 failed; build 0 warnings/errors; formatting passed; no schema change was introduced.

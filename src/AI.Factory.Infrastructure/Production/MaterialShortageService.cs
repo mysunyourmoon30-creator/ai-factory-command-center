@@ -150,20 +150,11 @@ public sealed class MaterialShortageService(
     {
         var request = await dbContext.PurchaseRequests.AsNoTracking()
             .Include(x => x.SourceProductionPlan)
+            .Include(x => x.IncomingPurchaseOrder)
             .Include(x => x.Items).ThenInclude(x => x.RawMaterial)
             .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-        return request is null ? null : new PurchaseRequestDto(
-            request.Id,
-            request.RequestNumber,
-            request.SourceProductionPlanId,
-            request.SourceProductionPlan.PlanNumber,
-            request.Status,
-            request.RequestedDate,
-            request.Items.OrderBy(x => x.RawMaterial.Code)
-                .Select(x => new PurchaseRequestItemDto(x.RawMaterialId, x.RawMaterial.Code, x.RequestedQuantity, x.ExpectedDate))
-                .ToArray(),
-            request.RowVersion);
+        return request is null ? null : PurchaseRequestMapper.Map(request);
     }
 
     private async Task<ILookup<long, AffectedOrderDto>> LoadAffectedOrdersAsync(long[] materialIds, CancellationToken cancellationToken)

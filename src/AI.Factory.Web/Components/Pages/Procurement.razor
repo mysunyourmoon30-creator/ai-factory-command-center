@@ -1,0 +1,245 @@
+@page "/procurement"
+@attribute [Authorize]
+@inject IProcurementService ProcurementService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject TimeProvider TimeProvider
+
+<PageTitle>Procurement</PageTitle>
+<h1>Procurement</h1>
+@if (!string.IsNullOrWhiteSpace(Message)) { <div class="alert alert-info">@Message</div> }
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><button class="nav-link @(Tab == "requests" ? "active" : null)" @onclick='() => Tab = "requests"'>Purchase Request Approval</button></li>
+    <li class="nav-item"><button class="nav-link @(Tab == "incoming" ? "active" : null)" @onclick='() => Tab = "incoming"'>Incoming Purchase Order</button></li>
+</ul>
+
+@if (Tab == "requests")
+{
+    @if (Requests.Count == 0) { <div class="alert alert-light">No purchase request has been raised.</div> }
+    else
+    {
+        <table class="table table-striped align-middle">
+            <thead><tr><th>Request</th><th>Plan</th><th>Status</th><th>Requested</th><th>Approved</th><th></th></tr></thead>
+            <tbody>@foreach (var request in Requests) {
+                <tr>
+                    <td>@request.RequestNumber</td>
+                    <td>@request.PlanNumber</td>
+                    <td><span class="badge @StatusClass(request.Status)">@request.Status</span></td>
+                    <td>@request.RequestedDate.ToString("yyyy-MM-dd")</td>
+                    <td>@(request.ApprovedDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                    <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectRequest(request)">Detail</button></td>
+                </tr>
+            }</tbody>
+        </table>
+    }
+
+    @if (SelectedRequest is not null)
+    {
+        <h2 class="h4 mt-4">@SelectedRequest.RequestNumber Detail</h2>
+        <table class="table table-sm"><thead><tr><th>Raw Material</th><th class="text-end">Requested Quantity</th><th>Expected Date</th></tr></thead>
+            <tbody>@foreach (var item in SelectedRequest.Items) { <tr><td>@item.RawMaterialCode</td><td class="text-end">@item.RequestedQuantity.ToString("N3")</td><td>@item.ExpectedDate.ToString("yyyy-MM-dd")</td></tr> }</tbody></table>
+        @if (!string.IsNullOrWhiteSpace(SelectedRequest.RejectionReason)) { <div class="alert alert-warning">Rejected: @SelectedRequest.RejectionReason</div> }
+
+        @if (SelectedRequest.Status == PurchaseRequestStatus.Draft)
+        {
+            <AuthorizeView Policy="@PolicyNames.CanCreatePurchaseRequest">
+                <Authorized Context="submitAuthorization"><button class="btn btn-primary" @onclick="SubmitAsync">Submit for approval</button></Authorized>
+            </AuthorizeView>
+        }
+        @if (SelectedRequest.Status == PurchaseRequestStatus.PendingApproval)
+        {
+            <AuthorizeView Policy="@PolicyNames.CanApprovePurchaseRequest">
+                <Authorized Context="approveAuthorization">
+                    <div class="d-flex gap-2 align-items-start flex-wrap">
+                        <button class="btn btn-success" @onclick="ApproveAsync">Approve</button>
+                        <div>
+                            <input class="form-control" style="max-width:20rem" placeholder="Rejection reason" @bind="RejectReason" />
+                            <button class="btn btn-outline-danger mt-1" @onclick="RejectAsync">Reject</button>
+                        </div>
+                    </div>
+                </Authorized>
+            </AuthorizeView>
+        }
+    }
+}
+else
+{
+    @if (IncomingOrders.Count == 0) { <div class="alert alert-light">No incoming purchase order has been recorded.</div> }
+    else
+    {
+        <table class="table table-striped align-middle">
+            <thead><tr><th>Purchase Order</th><th>Request</th><th>Expected</th><th>Received</th><th>Status</th><th></th></tr></thead>
+            <tbody>@foreach (var order in IncomingOrders) {
+                <tr>
+                    <td>@order.PurchaseOrderNumber</td>
+                    <td>@order.RequestNumber</td>
+                    <td>@order.ExpectedDate.ToString("yyyy-MM-dd")</td>
+                    <td>@(order.ReceivedDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                    <td><span class="badge @StatusClass(order.Status)">@order.Status</span> @if (order.IsLate) { <span class="badge text-bg-warning ms-1">Late @order.DelayDays d</span> }</td>
+                    <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectOrder(order)">Detail</button></td>
+                </tr>
+            }</tbody>
+        </table>
+    }
+
+    @if (SelectedOrder is not null)
+    {
+        <h2 class="h4 mt-4">@SelectedOrder.PurchaseOrderNumber Detail</h2>
+        <table class="table table-sm"><thead><tr><th>Raw Material</th><th class="text-end">Ordered</th><th class="text-end">Received</th></tr></thead>
+            <tbody>@foreach (var item in SelectedOrder.Items) { <tr><td>@item.RawMaterialCode - @item.RawMaterialName</td><td class="text-end">@item.OrderedQuantity.ToString("N3") @item.Unit</td><td class="text-end">@item.ReceivedQuantity.ToString("N3")</td></tr> }</tbody></table>
+
+        <AuthorizeView Policy="@PolicyNames.CanRecordIncomingPurchaseOrder">
+            <Authorized Context="receiveAuthorization">
+                <h3 class="h5">Set Received Quantity</h3>
+                <EditForm Model="ReceiveInput" OnValidSubmit="ReceiveAsync">
+                    <DataAnnotationsValidator /><ValidationSummary />
+                    <div class="row g-2">
+                        <div class="col-md-4"><label class="form-label">Raw material</label><InputSelect class="form-select" @bind-Value="ReceiveInput.RawMaterialId"><option value="0">Select material</option>@foreach (var item in SelectedOrder.Items) { <option value="@item.RawMaterialId">@item.RawMaterialCode (ordered @item.OrderedQuantity.ToString("N3"))</option> }</InputSelect></div>
+                        <div class="col-md-4"><label class="form-label">Cumulative received quantity</label><InputNumber class="form-control" @bind-Value="ReceiveInput.TargetReceivedQuantity" /></div>
+                    </div>
+                    <button class="btn btn-primary mt-2" type="submit">Update received quantity</button>
+                </EditForm>
+            </Authorized>
+        </AuthorizeView>
+    }
+
+    <AuthorizeView Policy="@PolicyNames.CanRecordIncomingPurchaseOrder">
+        <Authorized Context="createAuthorization">
+            <h2 class="h4 mt-4">Create Incoming Purchase Order</h2>
+            @if (EligibleRequests.Count == 0) { <div class="alert alert-light">No Approved purchase request is awaiting an incoming purchase order.</div> }
+            else
+            {
+                <div class="row g-2">
+                    <div class="col-md-4"><label class="form-label">Approved purchase request</label><InputSelect class="form-select" Value="CreateInput.PurchaseRequestId" ValueChanged="@((long v) => OnPurchaseRequestSelected(v))" ValueExpression="() => CreateInput.PurchaseRequestId"><option value="0">Select request</option>@foreach (var request in EligibleRequests) { <option value="@request.Id">@request.RequestNumber</option> }</InputSelect></div>
+                    <div class="col-md-4"><label class="form-label">Expected date</label><InputDate class="form-control" @bind-Value="CreateInput.ExpectedDate" /></div>
+                </div>
+                @if (CreateInput.Items.Count > 0)
+                {
+                    <table class="table table-sm mt-2"><thead><tr><th>Raw Material</th><th>Requested</th><th>Ordered Quantity</th></tr></thead>
+                        <tbody>@foreach (var item in CreateInput.Items) { <tr><td>@item.RawMaterialCode</td><td>@item.RequestedQuantity.ToString("N3")</td><td style="max-width:10rem"><InputNumber class="form-control" @bind-Value="item.OrderedQuantity" /></td></tr> }</tbody></table>
+                    <button class="btn btn-primary" @onclick="CreateIncomingOrderAsync">Create incoming purchase order</button>
+                }
+            }
+        </Authorized>
+    </AuthorizeView>
+}
+
+@code {
+    private string Tab = "requests";
+    private string? Message;
+    private IReadOnlyCollection<PurchaseRequestDto> Requests = [];
+    private IReadOnlyCollection<IncomingPurchaseOrderDto> IncomingOrders = [];
+    private PurchaseRequestDto? SelectedRequest;
+    private IncomingPurchaseOrderDto? SelectedOrder;
+    private string RejectReason = "";
+    private ReceiveForm ReceiveInput = new();
+    private CreateOrderForm CreateInput = new();
+    private IReadOnlyCollection<PurchaseRequestDto> EligibleRequests => Requests.Where(x => x.Status == PurchaseRequestStatus.Approved && !x.HasIncomingPurchaseOrder).ToArray();
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        Requests = await ProcurementService.ListPurchaseRequestsAsync();
+        IncomingOrders = await ProcurementService.ListIncomingPurchaseOrdersAsync();
+        if (SelectedRequest is not null) SelectedRequest = Requests.SingleOrDefault(x => x.Id == SelectedRequest.Id);
+        if (SelectedOrder is not null) SelectedOrder = IncomingOrders.SingleOrDefault(x => x.Id == SelectedOrder.Id);
+    }
+
+    private void SelectRequest(PurchaseRequestDto request) { SelectedRequest = request; RejectReason = ""; }
+    private void SelectOrder(IncomingPurchaseOrderDto order) { SelectedOrder = order; ReceiveInput = new ReceiveForm { TargetReceivedQuantity = order.Items.FirstOrDefault()?.ReceivedQuantity ?? 0 }; }
+
+    private void OnPurchaseRequestSelected(long purchaseRequestId)
+    {
+        CreateInput.PurchaseRequestId = purchaseRequestId;
+        var request = EligibleRequests.SingleOrDefault(x => x.Id == purchaseRequestId);
+        CreateInput.Items = request?.Items
+            .Select(x => new CreateOrderItemInput { RawMaterialId = x.RawMaterialId, RawMaterialCode = x.RawMaterialCode, RequestedQuantity = x.RequestedQuantity, OrderedQuantity = x.RequestedQuantity })
+            .ToList() ?? [];
+        if (request is not null) CreateInput.ExpectedDate = request.Items.Max(x => x.ExpectedDate);
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (SelectedRequest is null) return;
+        try { SelectedRequest = await ProcurementService.SubmitPurchaseRequestAsync(SelectedRequest.Id, new(SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request submitted for approval."; await ReloadAsync(); }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+    }
+
+    private async Task ApproveAsync()
+    {
+        if (SelectedRequest is null) return;
+        try { SelectedRequest = await ProcurementService.ApprovePurchaseRequestAsync(SelectedRequest.Id, new(SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request approved."; await ReloadAsync(); }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+    }
+
+    private async Task RejectAsync()
+    {
+        if (SelectedRequest is null) return;
+        try { SelectedRequest = await ProcurementService.RejectPurchaseRequestAsync(SelectedRequest.Id, new(RejectReason, SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request rejected."; await ReloadAsync(); }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+    }
+
+    private async Task CreateIncomingOrderAsync()
+    {
+        try
+        {
+            var items = CreateInput.Items.Select(x => new IncomingPurchaseOrderItemCommand(x.RawMaterialId, x.OrderedQuantity)).ToArray();
+            SelectedOrder = await ProcurementService.CreateIncomingPurchaseOrderAsync(new(CreateInput.PurchaseRequestId, CreateInput.ExpectedDate, items), await CurrentActorAsync());
+            Message = $"Incoming purchase order {SelectedOrder.PurchaseOrderNumber} created.";
+            CreateInput = new CreateOrderForm();
+            await ReloadAsync();
+        }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+    }
+
+    private async Task ReceiveAsync()
+    {
+        if (SelectedOrder is null) return;
+        try
+        {
+            SelectedOrder = await ProcurementService.SetReceivedQuantityAsync(SelectedOrder.Id, new(ReceiveInput.RawMaterialId, ReceiveInput.TargetReceivedQuantity, SelectedOrder.RowVersion), await CurrentActorAsync());
+            Message = "Received quantity updated.";
+            await ReloadAsync();
+        }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+    }
+
+    private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+
+    private static string StatusClass(PurchaseRequestStatus status) => status switch
+    {
+        PurchaseRequestStatus.Approved => "text-bg-success",
+        PurchaseRequestStatus.Rejected => "text-bg-danger",
+        PurchaseRequestStatus.PendingApproval => "text-bg-warning",
+        _ => "text-bg-secondary"
+    };
+
+    private static string StatusClass(IncomingPurchaseOrderStatus status) => status switch
+    {
+        IncomingPurchaseOrderStatus.Received => "text-bg-success",
+        IncomingPurchaseOrderStatus.Partial => "text-bg-warning",
+        _ => "text-bg-secondary"
+    };
+
+    private sealed class ReceiveForm
+    {
+        [System.ComponentModel.DataAnnotations.Range(1, long.MaxValue)] public long RawMaterialId { get; set; }
+        [System.ComponentModel.DataAnnotations.Range(0, double.MaxValue)] public decimal TargetReceivedQuantity { get; set; }
+    }
+
+    private sealed class CreateOrderForm
+    {
+        public long PurchaseRequestId { get; set; }
+        public DateTime ExpectedDate { get; set; }
+        public List<CreateOrderItemInput> Items { get; set; } = [];
+    }
+
+    private sealed class CreateOrderItemInput
+    {
+        public long RawMaterialId { get; set; }
+        public string RawMaterialCode { get; set; } = "";
+        public decimal RequestedQuantity { get; set; }
+        public decimal OrderedQuantity { get; set; }
+    }
+}
