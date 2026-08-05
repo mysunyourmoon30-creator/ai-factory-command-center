@@ -24,6 +24,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<AiToolExecutionLog> AiToolExecutionLogs => Set<AiToolExecutionLog>();
 
+    public DbSet<ProductionRiskReportRow> ProductionRiskReport => Set<ProductionRiskReportRow>();
+    public DbSet<PurchaseOrderStatusReportRow> PurchaseOrderStatusReport => Set<PurchaseOrderStatusReportRow>();
+    public DbSet<MaterialShortageReportRow> MaterialShortageReport => Set<MaterialShortageReportRow>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -42,6 +46,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
         ConfigureAlert(modelBuilder.Entity<Alert>());
         ConfigureAuditLog(modelBuilder.Entity<AuditLog>());
         ConfigureAiToolExecutionLog(modelBuilder.Entity<AiToolExecutionLog>());
+        ConfigureReportViews(modelBuilder);
     }
 
     private static void ConfigureRawMaterial(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<RawMaterial> entity)
@@ -246,5 +251,32 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
         entity.Property(x => x.ErrorMessage).HasMaxLength(500);
         entity.Property(x => x.CreatedAt).HasPrecision(0);
         entity.HasIndex(x => new { x.ToolName, x.CreatedAt });
+    }
+
+    /// <summary>
+    /// Keyless entities backed by the locked report views (Master Scope V4 §14.7). Mapping via
+    /// ToView (not ToTable) means GetTableName() returns null for these, so they never count
+    /// toward the locked 14-application-table assertion.
+    /// </summary>
+    private static void ConfigureReportViews(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<ProductionRiskReportRow>(entity =>
+        {
+            entity.HasNoKey();
+            entity.ToView("vw_ProductionRiskReport");
+            entity.Property(x => x.PlanStatus).HasConversion<string>();
+        });
+        modelBuilder.Entity<PurchaseOrderStatusReportRow>(entity =>
+        {
+            entity.HasNoKey();
+            entity.ToView("vw_PurchaseOrderStatusReport");
+            entity.Property(x => x.Status).HasConversion<string>();
+        });
+        modelBuilder.Entity<MaterialShortageReportRow>(entity =>
+        {
+            entity.HasNoKey();
+            entity.ToView("vw_MaterialShortageReport");
+            entity.Property(x => x.PlanStatus).HasConversion<string>();
+        });
     }
 }

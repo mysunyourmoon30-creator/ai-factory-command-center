@@ -14,7 +14,8 @@ Updated: 2026-08-05 (Asia/Bangkok)
 | Day 6 Material Requirement Query | Done | Cumulative active demand by date, Late PO exclusion, Available By Date; 68/68 automated checks passed | None | Begin Day 7 Material Shortage |
 | Day 7 Material Shortage | Done | Shortage 1,250 kg verified on SQL Server; Serializable PR creation returns one success and one 409 under a real race; 86/86 automated checks passed | None | Begin Day 8 Purchase Request approval |
 | Day 8 PR Approval, Incoming PO, Idempotent Receipt | Done | Submit/Approve/Reject wired to locked roles; Test 12 numbers (+300, +200, +0) verified on SQL Server; concurrent Approve returns one 200 and one 409 under a real race; 105/105 automated checks passed | None | Begin Day 9 Dashboard and Reports |
-| Day 9-14 | Not Started | - | Locked roadmap | Follow the locked sequence |
+| Day 9 Dashboard, Reports, Secure CSV | Done | KPI/Daily Summary match the locked §16.11 figures exactly; CSV formula-injection and comma-escaping verified live on SQL Server; 135/135 automated checks passed | Fixed a pre-existing Thai-locale date bug (see acceptance evidence) | Begin Day 10 AI Copilot |
+| Day 10-14 | Not Started | - | Locked roadmap | Follow the locked sequence |
 
 ## Day 1 acceptance evidence
 
@@ -45,20 +46,20 @@ Updated: 2026-08-05 (Asia/Bangkok)
 
 ## Scope audit
 
-- No Day 9-14 business feature has been implemented.
+- No Day 10-14 business feature has been implemented. Audit Log Report and its Audit and Administration screen are intentionally not part of Day 9 — the roadmap names "Audit Page" as a Day 11 deliverable alongside Alert Deduplication, so building that screen now would ship it four days early with no alert-writing logic to populate it.
 - Generated Counter and Weather demo pages were removed.
 - No Docker, cloud, microservice, WebAssembly, `.Client`, AI-write, RAG, or additional table scope was added.
 - Foundation tests are verification evidence and are not additions to the 15 locked required business tests.
 
 ## Handoff
 
-- Current module: Procurement
-- Current task: Day 8 PR Approval, Incoming PO, Idempotent Receipt
+- Current module: Reporting (Dashboard, Reports)
+- Current task: Day 9 Dashboard, Report Views, Secure CSV
 - Status: Done
 - Remaining error: None known
 - Last commit: See `git log -1`
-- Next task: Day 9 Dashboard and the four report views, KPI from the database, CSV export
-- Do not change: locked topology, table count, `SourceProductionPlanId` uniqueness rule, TimeProvider policy, the unclamped On-hand Available used in calculations, the Serializable isolation used for Purchase Request creation, or the receipt endpoint's cumulative-quantity contract (it must keep receiving the new total, not an increment)
+- Next task: Day 10 Ollama, structured output, the 4 read-only AI tools, prompt/allow-list protection
+- Do not change: locked topology, table count (view entities via `.ToView` never count toward it), `SourceProductionPlanId` uniqueness rule, TimeProvider policy, the unclamped On-hand Available used in calculations, the Serializable isolation used for Purchase Request creation, the receipt endpoint's cumulative-quantity contract, the report views' no-time-relative-math rule, or any `.ToString("yyyy-MM-dd", ...)` call's explicit `CultureInfo.InvariantCulture` (the dev box's system locale is Thai and silently renders Buddhist-era years otherwise)
 
 ## Day 2 acceptance evidence
 
@@ -161,3 +162,16 @@ Updated: 2026-08-05 (Asia/Bangkok)
 - All four roles can read Purchase Requests and Incoming Purchase Orders; Viewer is forbidden on every write; anonymous read returns HTTP 401.
 - Note: the integration suite's `Received_quantity_cannot_decrease_or_exceed_the_ordered_quantity` and `Submit_with_a_wrong_row_version_returns_conflict`-style tests intentionally send a value that can never match the stored `RowVersion` (matching the existing `Stale_plan_row_version_returns_http_conflict`/`Stale_order_row_version_returns_http_conflict` idiom), because the EF Core InMemory provider does not regenerate `RowVersion` on save the way SQL Server does; the genuine concurrent-race guarantee is verified live, as above.
 - Latest verification: 105 passed, 0 failed; build 0 warnings/errors; formatting passed; no schema change was introduced.
+
+## Day 9 acceptance evidence
+
+- `IDashboardService` and `IReportExportService` are shared by Blazor and API endpoints; every KPI is computed live from the database (`Dashboard อ่านจาก Database`), with no hard-coded or AI-computed figures.
+- Only 3 of the 4 locked reports are in scope: Production Risk, Material Shortage, Purchase Order Status. Audit Log Report is deferred to Day 11 (see Handoff), matching the roadmap's own "Audit Page" placement.
+- Three new SQL views (`vw_ProductionRiskReport`, `vw_PurchaseOrderStatusReport`, `vw_MaterialShortageReport`) were added via one EF migration and mapped as keyless `.ToView` entities; the model still contains exactly 14 application tables (`FoundationContractTests` filters by `GetTableName()`, which is null for view-only entities). `deploy/database.sql` was regenerated.
+- The views are pure JOIN projections with no time-relative `CASE`/window-function logic, because the app's `TimeProvider` abstraction (frozen `T` in Demo/Testing) cannot be seen by `GETUTCDATE()`; risk and lateness classification is applied in C# on top of the view rows using the same tested `OrderRiskCalculator`/`PurchaseRequestRules` statics used everywhere else.
+- On-screen and JSON report data reuse the already-tested feature services (`IProductionPlanService`, `IMaterialShortageService`, `IProcurementService`) unchanged; only CSV export reads from the SQL views (Material Shortage CSV reuses `IMaterialRequirementQueryService` directly instead, since its cumulative multi-date math cannot safely live in a view either — this guarantees the CSV numbers can never disagree with the screen).
+- CSV export is gated by the `CanExportReports` policy (registered Day 1, all four roles) and implements the locked §13.1 defenses: embedded double quotes are doubled, values containing a comma or newline are quote-wrapped, and values starting with `= + - @` are prefixed with a single quote to neutralize spreadsheet formula injection. Output carries a UTF-8 BOM.
+- Dashboard KPI and Daily Summary figures were verified live against SQL Server and match the locked §16.11 demo dataset exactly: Customer Orders 10, Production Plans 8, Material Shortages 1, Critical Machines 1, and SO-DEMO-001 listed as a Critical risk with a 2-day delay — Late Purchase Orders is 0 rather than the spec's worked-example 1, because that example describes the state *after* a human performs the Day 7-narrated PR/PO walkthrough, not the untouched canonical seed.
+- Both CSV injection defenses were confirmed live on SQL Server with a deliberately seeded `=PLAN-INJECT` plan number and `SO,INJECT` order number: the export rendered `'=PLAN-INJECT` and `"SO,INJECT"` respectively; the seeded rows were then removed.
+- **Found and fixed a pre-existing bug, not introduced by Day 9**: every `.ToString("yyyy-MM-dd")` call across 7 Razor pages (Days 3-8) plus this day's own new code rendered the **Thai Buddhist Era year** (e.g. `2569` instead of `2026`) because the development machine's system locale is `th-TH`, and no code specified `CultureInfo.InvariantCulture`. Every such call now does. `@using System.Globalization` was added to `_Imports.razor`. This is a display-only fix — no stored data or business calculation was affected — but it would have made every date on every screen and in every CSV wrong on this machine (and any other Thai-locale deployment) had it shipped.
+- Latest verification: 135 passed, 0 failed; build 0 warnings/errors; formatting passed; 14 application tables unchanged.

@@ -1,0 +1,35 @@
+using AI.Factory.Core.Production;
+using AI.Factory.Core.Reporting;
+using AI.Factory.Core.Security;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+
+namespace AI.Factory.Api;
+
+public static class ReportEndpointExtensions
+{
+    public static IEndpointRouteBuilder MapReportEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var dashboard = endpoints.MapGroup("/api/dashboard").RequireAuthorization();
+        dashboard.MapGet("/kpi", async (IDashboardService service, CancellationToken ct) => Results.Ok(await service.GetKpiAsync(ct)));
+        dashboard.MapGet("/daily-summary", async (IDashboardService service, CancellationToken ct) => Results.Ok(await service.GetDailySummaryAsync(ct)));
+        dashboard.MapGet("/critical-risks", async (IDashboardService service, CancellationToken ct) => Results.Ok(await service.GetCriticalRisksAsync(ct)));
+        dashboard.MapGet("/alerts", async (IDashboardService service, CancellationToken ct) => Results.Ok(await service.ListActiveAlertsAsync(ct)));
+
+        var reports = endpoints.MapGroup("/api/reports").RequireAuthorization();
+        reports.MapGet("/production-risk", async (IProductionPlanService service, CancellationToken ct) => Results.Ok(await service.ListAsync(ct)));
+        reports.MapGet("/material-shortage", async (IMaterialShortageService service, CancellationToken ct) => Results.Ok(await service.ListAsync(ct)));
+        reports.MapGet("/purchase-order-status", async (IProcurementService service, CancellationToken ct) => Results.Ok(await service.ListIncomingPurchaseOrdersAsync(ct)));
+
+        var exports = reports.MapGroup("").RequireAuthorization(PolicyNames.CanExportReports);
+        exports.MapGet("/production-risk/export.csv", async (IReportExportService service, CancellationToken ct) =>
+            Results.File(await service.ExportProductionRiskCsvAsync(ct), "text/csv; charset=utf-8", "production-risk-report.csv"));
+        exports.MapGet("/material-shortage/export.csv", async (IReportExportService service, CancellationToken ct) =>
+            Results.File(await service.ExportMaterialShortageCsvAsync(ct), "text/csv; charset=utf-8", "material-shortage-report.csv"));
+        exports.MapGet("/purchase-order-status/export.csv", async (IReportExportService service, CancellationToken ct) =>
+            Results.File(await service.ExportPurchaseOrderStatusCsvAsync(ct), "text/csv; charset=utf-8", "purchase-order-status-report.csv"));
+
+        return endpoints;
+    }
+}

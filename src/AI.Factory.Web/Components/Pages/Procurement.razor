@@ -25,8 +25,8 @@
                     <td>@request.RequestNumber</td>
                     <td>@request.PlanNumber</td>
                     <td><span class="badge @StatusClass(request.Status)">@request.Status</span></td>
-                    <td>@request.RequestedDate.ToString("yyyy-MM-dd")</td>
-                    <td>@(request.ApprovedDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                    <td>@request.RequestedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
+                    <td>@(request.ApprovedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
                     <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectRequest(request)">Detail</button></td>
                 </tr>
             }</tbody>
@@ -37,7 +37,7 @@
     {
         <h2 class="h4 mt-4">@SelectedRequest.RequestNumber Detail</h2>
         <table class="table table-sm"><thead><tr><th>Raw Material</th><th class="text-end">Requested Quantity</th><th>Expected Date</th></tr></thead>
-            <tbody>@foreach (var item in SelectedRequest.Items) { <tr><td>@item.RawMaterialCode</td><td class="text-end">@item.RequestedQuantity.ToString("N3")</td><td>@item.ExpectedDate.ToString("yyyy-MM-dd")</td></tr> }</tbody></table>
+            <tbody>@foreach (var item in SelectedRequest.Items) { <tr><td>@item.RawMaterialCode</td><td class="text-end">@item.RequestedQuantity.ToString("N3")</td><td>@item.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
         @if (!string.IsNullOrWhiteSpace(SelectedRequest.RejectionReason)) { <div class="alert alert-warning">Rejected: @SelectedRequest.RejectionReason</div> }
 
         @if (SelectedRequest.Status == PurchaseRequestStatus.Draft)
@@ -64,17 +64,31 @@
 }
 else
 {
-    @if (IncomingOrders.Count == 0) { <div class="alert alert-light">No incoming purchase order has been recorded.</div> }
+    <h2 class="h4">Purchase Order Status Report</h2>
+    @if (IncomingOrders.Count > 0)
+    {
+        <div class="row g-3 mb-2">
+            <div class="col-auto"><div class="card p-2"><div class="text-muted small">Open</div><div class="fs-5">@IncomingOrders.Count(x => x.Status == IncomingPurchaseOrderStatus.Open)</div></div></div>
+            <div class="col-auto"><div class="card p-2"><div class="text-muted small">Partial</div><div class="fs-5">@IncomingOrders.Count(x => x.Status == IncomingPurchaseOrderStatus.Partial)</div></div></div>
+            <div class="col-auto"><div class="card p-2"><div class="text-muted small">Received</div><div class="fs-5">@IncomingOrders.Count(x => x.Status == IncomingPurchaseOrderStatus.Received)</div></div></div>
+            <div class="col-auto"><div class="card p-2 border-warning"><div class="text-muted small">Late</div><div class="fs-5">@IncomingOrders.Count(x => x.IsLate)</div></div></div>
+        </div>
+        <div class="d-flex gap-2 align-items-end mb-2">
+            <div class="form-check"><input class="form-check-input" type="checkbox" id="lateOnly" @bind="LateOnly" /><label class="form-check-label" for="lateOnly">Late only</label></div>
+            <a class="btn btn-outline-secondary" href="/api/reports/purchase-order-status/export.csv" target="_blank">Export CSV</a>
+        </div>
+    }
+    @if (FilteredIncomingOrders.Count == 0) { <div class="alert alert-light">No incoming purchase order has been recorded.</div> }
     else
     {
         <table class="table table-striped align-middle">
             <thead><tr><th>Purchase Order</th><th>Request</th><th>Expected</th><th>Received</th><th>Status</th><th></th></tr></thead>
-            <tbody>@foreach (var order in IncomingOrders) {
+            <tbody>@foreach (var order in FilteredIncomingOrders) {
                 <tr>
                     <td>@order.PurchaseOrderNumber</td>
                     <td>@order.RequestNumber</td>
-                    <td>@order.ExpectedDate.ToString("yyyy-MM-dd")</td>
-                    <td>@(order.ReceivedDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                    <td>@order.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
+                    <td>@(order.ReceivedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
                     <td><span class="badge @StatusClass(order.Status)">@order.Status</span> @if (order.IsLate) { <span class="badge text-bg-warning ms-1">Late @order.DelayDays d</span> }</td>
                     <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectOrder(order)">Detail</button></td>
                 </tr>
@@ -129,6 +143,8 @@ else
     private string? Message;
     private IReadOnlyCollection<PurchaseRequestDto> Requests = [];
     private IReadOnlyCollection<IncomingPurchaseOrderDto> IncomingOrders = [];
+    private bool LateOnly;
+    private IReadOnlyCollection<IncomingPurchaseOrderDto> FilteredIncomingOrders => LateOnly ? IncomingOrders.Where(x => x.IsLate).ToArray() : IncomingOrders;
     private PurchaseRequestDto? SelectedRequest;
     private IncomingPurchaseOrderDto? SelectedOrder;
     private string RejectReason = "";

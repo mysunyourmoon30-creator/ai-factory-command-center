@@ -709,3 +709,81 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260805142818_AddReportViews'
+)
+BEGIN
+    CREATE VIEW vw_ProductionRiskReport AS
+    SELECT
+        pp.Id AS ProductionPlanId,
+        pp.PlanNumber,
+        co.OrderNumber,
+        f.Code AS FormulationCode,
+        m.MachineCode,
+        pp.RequiredBatch,
+        pp.PlannedCompletionDate,
+        pp.Status AS PlanStatus,
+        co.DeliveryDate
+    FROM ProductionPlans pp
+    JOIN CustomerOrders co ON co.Id = pp.CustomerOrderId
+    JOIN Formulations f ON f.Id = co.FormulationId
+    JOIN Machines m ON m.Id = pp.MachineId
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260805142818_AddReportViews'
+)
+BEGIN
+    CREATE VIEW vw_PurchaseOrderStatusReport AS
+    SELECT
+        po.Id AS IncomingPurchaseOrderId,
+        po.PurchaseOrderNumber,
+        pr.RequestNumber,
+        po.ExpectedDate,
+        po.ReceivedDate,
+        po.Status,
+        SUM(i.OrderedQuantity) AS TotalOrderedQuantity,
+        SUM(i.ReceivedQuantity) AS TotalReceivedQuantity
+    FROM IncomingPurchaseOrders po
+    JOIN PurchaseRequests pr ON pr.Id = po.PurchaseRequestId
+    JOIN IncomingPurchaseOrderItems i ON i.IncomingPurchaseOrderId = po.Id
+    GROUP BY po.Id, po.PurchaseOrderNumber, pr.RequestNumber, po.ExpectedDate, po.ReceivedDate, po.Status
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260805142818_AddReportViews'
+)
+BEGIN
+    CREATE VIEW vw_MaterialShortageReport AS
+    SELECT
+        pp.Id AS ProductionPlanId,
+        rm.Code AS RawMaterialCode,
+        rm.Name AS RawMaterialName,
+        rm.Unit,
+        rm.CurrentStock,
+        rm.ReservedStock,
+        pp.PlanNumber,
+        mr.RequiredQuantity,
+        pp.PlannedCompletionDate AS RequiredDate,
+        pp.Status AS PlanStatus
+    FROM MaterialRequirements mr
+    JOIN RawMaterials rm ON rm.Id = mr.RawMaterialId
+    JOIN ProductionPlans pp ON pp.Id = mr.ProductionPlanId
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260805142818_AddReportViews'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260805142818_AddReportViews', N'10.0.10');
+END;
+
+COMMIT;
+GO
+

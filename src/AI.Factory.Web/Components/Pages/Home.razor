@@ -1,9 +1,83 @@
-﻿@page "/"
-
+@page "/"
 @attribute [Authorize]
+@inject IDashboardService Dashboard
 
 <PageTitle>AI Factory Command Center</PageTitle>
+<h1>Dashboard</h1>
 
-<h1>AI Factory Command Center</h1>
+@if (Kpi is null)
+{
+    <div class="alert alert-light">Loading dashboard...</div>
+}
+else
+{
+    <div class="row g-3">
+        <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Customer Orders</div><div class="fs-3">@Kpi.CustomerOrderCount</div></div></div>
+        <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Production Plans</div><div class="fs-3">@Kpi.ProductionPlanCount</div></div></div>
+        <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Orders at Risk</div><div class="fs-3">@Kpi.OrdersAtRiskCount</div></div></div>
+        <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Material Shortages</div><div class="fs-3">@Kpi.MaterialShortageCount</div></div></div>
+        <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Late Purchase Orders</div><div class="fs-3">@Kpi.LatePurchaseOrderCount</div></div></div>
+        <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Machine Alerts</div><div class="fs-3">@Kpi.MachineAlertCount</div></div></div>
+        <div class="col-md-3"><div class="card p-3 border-danger"><div class="text-muted small">Critical Risks</div><div class="fs-3 text-danger">@Kpi.CriticalRiskCount</div></div></div>
+    </div>
+}
 
-<p>Foundation security is running.</p>
+<h2 class="h4 mt-4">Critical Risks</h2>
+@if (CriticalRisks is null)
+{
+    <div class="alert alert-light">Loading...</div>
+}
+else if (CriticalRisks.DelayedOrders.Count == 0 && CriticalRisks.CriticalMachines.Count == 0)
+{
+    <div class="alert alert-success">No critical risk is currently active.</div>
+}
+else
+{
+    @if (CriticalRisks.DelayedOrders.Count > 0)
+    {
+        <table class="table table-sm"><thead><tr><th>Order</th><th>Delivery</th><th>Planned Completion</th><th class="text-end">Delay (days)</th></tr></thead>
+            <tbody>@foreach (var order in CriticalRisks.DelayedOrders) { <tr><td>@order.OrderNumber</td><td>@order.DeliveryDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td>@order.PlannedCompletionDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td class="text-end"><span class="badge text-bg-danger">@order.DelayRiskDays</span></td></tr> }</tbody></table>
+    }
+    @if (CriticalRisks.CriticalMachines.Count > 0)
+    {
+        <table class="table table-sm"><thead><tr><th>Machine</th><th class="text-end">Temperature</th><th class="text-end">Speed</th></tr></thead>
+            <tbody>@foreach (var machine in CriticalRisks.CriticalMachines) { <tr><td>@machine.MachineCode</td><td class="text-end">@machine.Temperature.ToString("N0")&deg;C</td><td class="text-end">@machine.Speed.ToString("N0")</td></tr> }</tbody></table>
+    }
+}
+
+<h2 class="h4 mt-4">Daily Factory Summary</h2>
+@if (DailySummary is not null)
+{
+    <dl class="row">
+        <dt class="col-sm-3">As of</dt><dd class="col-sm-9">@DailySummary.AsOfDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</dd>
+        <dt class="col-sm-3">Customer Orders</dt><dd class="col-sm-9">@DailySummary.CustomerOrderCount</dd>
+        <dt class="col-sm-3">Production Plans</dt><dd class="col-sm-9">@DailySummary.ProductionPlanCount</dd>
+        <dt class="col-sm-3">Material Shortages</dt><dd class="col-sm-9">@DailySummary.MaterialShortageCount</dd>
+        <dt class="col-sm-3">Late Purchase Orders</dt><dd class="col-sm-9">@DailySummary.LatePurchaseOrderCount</dd>
+        <dt class="col-sm-3">Critical Machines</dt><dd class="col-sm-9">@DailySummary.CriticalMachineCount</dd>
+    </dl>
+}
+
+<h2 class="h4 mt-4">Alert List</h2>
+@if (Alerts is null) { <div class="alert alert-light">Loading...</div> }
+else if (Alerts.Count == 0) { <div class="alert alert-light">No active alert.</div> }
+else
+{
+    <table class="table table-sm"><thead><tr><th>Type</th><th>Severity</th><th>Entity</th><th>Message</th><th>Created</th></tr></thead>
+        <tbody>@foreach (var alert in Alerts) { <tr><td>@alert.AlertType</td><td><span class="badge @(alert.Severity == AlertSeverity.Critical ? "text-bg-danger" : "text-bg-warning")">@alert.Severity</span></td><td>@alert.EntityName #@alert.EntityId</td><td>@alert.Message</td><td>@alert.CreatedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
+}
+
+@code {
+    private DashboardKpiDto? Kpi;
+    private DailySummaryDto? DailySummary;
+    private CriticalRisksDto? CriticalRisks;
+    private IReadOnlyCollection<ActiveAlertDto>? Alerts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Kpi = await Dashboard.GetKpiAsync();
+        DailySummary = await Dashboard.GetDailySummaryAsync();
+        CriticalRisks = await Dashboard.GetCriticalRisksAsync();
+        Alerts = await Dashboard.ListActiveAlertsAsync();
+    }
+}

@@ -74,6 +74,7 @@ public static class EndpointRegistrationExtensions
         endpoints.MapMaterialRequirementEndpoints();
         endpoints.MapMaterialShortageEndpoints();
         endpoints.MapProcurementEndpoints();
+        endpoints.MapReportEndpoints();
 
         return endpoints;
     }

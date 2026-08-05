@@ -33,13 +33,25 @@
 </AuthorizeView>
 
 <h2 class="h4 mt-4">Plan List / Production Risk Report</h2>
-@if (Plans.Count == 0) { <div class="alert alert-light">No production plans found.</div> }
+@if (Plans.Count > 0)
+{
+    <div class="row g-3 mb-2">
+        <div class="col-auto"><div class="card p-2"><div class="text-muted small">Normal</div><div class="fs-5">@Plans.Count(x => x.RiskStatus == RiskStatus.Normal)</div></div></div>
+        <div class="col-auto"><div class="card p-2"><div class="text-muted small">Warning</div><div class="fs-5">@Plans.Count(x => x.RiskStatus == RiskStatus.Warning)</div></div></div>
+        <div class="col-auto"><div class="card p-2"><div class="text-muted small">Critical</div><div class="fs-5">@Plans.Count(x => x.RiskStatus == RiskStatus.Critical)</div></div></div>
+    </div>
+    <div class="d-flex gap-2 align-items-end mb-2">
+        <div><label class="form-label">Filter by risk</label><select class="form-select" @bind="RiskFilter"><option value="">All</option><option value="Normal">Normal</option><option value="Warning">Warning</option><option value="Critical">Critical</option></select></div>
+        <a class="btn btn-outline-secondary" href="/api/reports/production-risk/export.csv" target="_blank">Export CSV</a>
+    </div>
+}
+@if (FilteredPlans.Count == 0) { <div class="alert alert-light">No production plans found.</div> }
 else
 {
     <table class="table table-striped align-middle">
         <thead><tr><th>Plan</th><th>Order</th><th>Machine</th><th>Required Batch</th><th>Completion</th><th>Lifecycle</th><th>Risk</th><th></th></tr></thead>
-        <tbody>@foreach (var plan in Plans) {
-            <tr><td>@plan.PlanNumber</td><td>@plan.OrderNumber</td><td>@plan.MachineCode</td><td>@plan.RequiredBatch</td><td>@plan.PlannedCompletionDate.ToString("yyyy-MM-dd")</td>
+        <tbody>@foreach (var plan in FilteredPlans) {
+            <tr><td>@plan.PlanNumber</td><td>@plan.OrderNumber</td><td>@plan.MachineCode</td><td>@plan.RequiredBatch</td><td>@plan.PlannedCompletionDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
                 <td><span class="badge text-bg-secondary">@plan.LifecycleStatus</span></td><td><span class="badge @RiskClass(plan.RiskStatus)">@plan.RiskStatus</span></td>
                 <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => Selected = plan">Detail</button></td></tr>
         }</tbody>
@@ -69,6 +81,9 @@ else
     private ProductionPlanDto? Selected;
     private PlanInput Input = new();
     private string? Message;
+    private string RiskFilter = "";
+    private IReadOnlyCollection<ProductionPlanDto> FilteredPlans =>
+        string.IsNullOrEmpty(RiskFilter) ? Plans : Plans.Where(x => x.RiskStatus.ToString() == RiskFilter).ToArray();
     private ProductionPlanStatus? NextStatus => Selected?.LifecycleStatus switch { ProductionPlanStatus.Planned => ProductionPlanStatus.InProduction, ProductionPlanStatus.InProduction => ProductionPlanStatus.Completed, _ => null };
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();

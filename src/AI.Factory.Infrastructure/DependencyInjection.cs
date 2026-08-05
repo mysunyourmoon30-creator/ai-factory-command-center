@@ -9,6 +9,8 @@ using AI.Factory.Core.Orders;
 using AI.Factory.Infrastructure.Orders;
 using AI.Factory.Core.Production;
 using AI.Factory.Infrastructure.Production;
+using AI.Factory.Core.Reporting;
+using AI.Factory.Infrastructure.Reporting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -43,6 +45,8 @@ public static class DependencyInjection
         services.AddScoped<IMaterialRequirementQueryService, MaterialRequirementQueryService>();
         services.AddScoped<IMaterialShortageService, MaterialShortageService>();
         services.AddScoped<IProcurementService, ProcurementService>();
+        services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<IReportExportService, ReportExportService>();
         services.AddSingleton<IOrderRiskCalculator, OrderRiskCalculator>();
 
         services.AddSingleton(CreateTimeProvider(configuration, environmentName));

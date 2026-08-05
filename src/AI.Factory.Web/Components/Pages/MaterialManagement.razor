@@ -42,7 +42,7 @@ else if (Tab == "requirements")
             <td class="text-end">@item.EligibleIncoming.ToString("N3")</td>
             <td class="text-end">@Math.Max(item.ProjectedAvailable, 0).ToString("N3") @if (item.ProjectedAvailable < 0) { <span class="badge text-bg-danger ms-1">Negative</span> }</td>
             <td class="text-end">@if (item.ShortageQuantity > 0) { <span class="badge text-bg-danger">@item.ShortageQuantity.ToString("N3")</span> } else { <text>-</text> }</td>
-            <td>@(item.EvaluationDate?.ToString("yyyy-MM-dd") ?? "No active demand")</td>
+            <td>@(item.EvaluationDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "No active demand")</td>
         </tr>
     }
     </tbody></table>

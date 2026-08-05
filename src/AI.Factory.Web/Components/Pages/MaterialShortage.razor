@@ -9,12 +9,23 @@
 @if (!string.IsNullOrWhiteSpace(Message)) { <div class="alert alert-info">@Message</div> }
 
 <h2 class="h4 mt-4">Material Shortage Report</h2>
-@if (Rows.Count == 0) { <div class="alert alert-light">No raw material has active demand.</div> }
+@if (Rows.Count > 0)
+{
+    <div class="row g-3 mb-2">
+        <div class="col-auto"><div class="card p-2"><div class="text-muted small">With Active Demand</div><div class="fs-5">@Rows.Count</div></div></div>
+        <div class="col-auto"><div class="card p-2 border-danger"><div class="text-muted small">Short</div><div class="fs-5 text-danger">@Rows.Count(x => x.ShortageQuantity > 0)</div></div></div>
+    </div>
+    <div class="d-flex gap-2 align-items-end mb-2">
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="shortageOnly" @bind="ShortageOnly" /><label class="form-check-label" for="shortageOnly">Shortage only</label></div>
+        <a class="btn btn-outline-secondary" href="/api/reports/material-shortage/export.csv" target="_blank">Export CSV</a>
+    </div>
+}
+@if (FilteredRows.Count == 0) { <div class="alert alert-light">No raw material has active demand.</div> }
 else
 {
     <table class="table table-striped align-middle">
         <thead><tr><th>Raw Material</th><th class="text-end">Total Requirement</th><th class="text-end">On-hand Available</th><th class="text-end">Eligible Incoming</th><th class="text-end">Projected Available</th><th class="text-end">Shortage</th><th>Required Date</th><th></th></tr></thead>
-        <tbody>@foreach (var row in Rows) {
+        <tbody>@foreach (var row in FilteredRows) {
             <tr>
                 <td>@row.RawMaterialCode - @row.RawMaterialName</td>
                 <td class="text-end">@row.TotalRequirement.ToString("N3") @row.Unit</td>
@@ -22,7 +33,7 @@ else
                 <td class="text-end">@row.EligibleIncoming.ToString("N3")</td>
                 <td class="text-end">@Math.Max(row.ProjectedAvailable, 0).ToString("N3")</td>
                 <td class="text-end"><span class="badge @(row.ShortageQuantity > 0 ? "text-bg-danger" : "text-bg-success")">@row.ShortageQuantity.ToString("N3")</span></td>
-                <td>@(row.MaterialRequiredDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                <td>@(row.MaterialRequiredDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
                 <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => Select(row)">Detail</button></td>
             </tr>
         }</tbody>
@@ -32,14 +43,14 @@ else
 @if (Selected is not null)
 {
     <h2 class="h4 mt-4">@Selected.RawMaterialCode Detail</h2>
-    <p class="text-muted">Every figure is reported at evaluation date @(Selected.EvaluationDate?.ToString("yyyy-MM-dd") ?? "-").</p>
+    <p class="text-muted">Every figure is reported at evaluation date @(Selected.EvaluationDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-").</p>
 
     <h3 class="h5">Affected Orders</h3>
     @if (Selected.AffectedOrders.Count == 0) { <div class="alert alert-light">No active plan requires this material.</div> }
     else
     {
         <table class="table table-sm"><thead><tr><th>Order</th><th>Customer</th><th>Plan</th><th>Required Date</th><th class="text-end">Required</th></tr></thead>
-            <tbody>@foreach (var order in Selected.AffectedOrders) { <tr><td>@order.OrderNumber</td><td>@order.CustomerName</td><td>@order.PlanNumber</td><td>@order.RequiredDate.ToString("yyyy-MM-dd")</td><td class="text-end">@order.RequiredQuantity.ToString("N3")</td></tr> }</tbody></table>
+            <tbody>@foreach (var order in Selected.AffectedOrders) { <tr><td>@order.OrderNumber</td><td>@order.CustomerName</td><td>@order.PlanNumber</td><td>@order.RequiredDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td class="text-end">@order.RequiredQuantity.ToString("N3")</td></tr> }</tbody></table>
     }
 
     <h3 class="h5">Late Purchase Orders</h3>
@@ -48,7 +59,7 @@ else
     {
         <div class="alert alert-warning">Late purchase orders are shown for visibility and are never counted as eligible incoming supply.</div>
         <table class="table table-sm"><thead><tr><th>Purchase Order</th><th>Expected</th><th class="text-end">Delay (days)</th><th class="text-end">Outstanding</th></tr></thead>
-            <tbody>@foreach (var late in Selected.LatePurchaseOrders) { <tr><td>@late.PurchaseOrderNumber</td><td>@late.ExpectedDate.ToString("yyyy-MM-dd")</td><td class="text-end">@late.DelayDays</td><td class="text-end">@late.OutstandingQuantity.ToString("N3")</td></tr> }</tbody></table>
+            <tbody>@foreach (var late in Selected.LatePurchaseOrders) { <tr><td>@late.PurchaseOrderNumber</td><td>@late.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td class="text-end">@late.DelayDays</td><td class="text-end">@late.OutstandingQuantity.ToString("N3")</td></tr> }</tbody></table>
     }
 
     <AuthorizeView Policy="@PolicyNames.CanCreatePurchaseRequest">
@@ -77,6 +88,8 @@ else
     private MaterialShortageDto? Selected;
     private RequestInput Input = new();
     private string? Message;
+    private bool ShortageOnly;
+    private IReadOnlyCollection<MaterialShortageDto> FilteredRows => ShortageOnly ? Rows.Where(x => x.ShortageQuantity > 0).ToArray() : Rows;
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
