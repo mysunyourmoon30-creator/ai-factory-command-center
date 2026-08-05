@@ -1,6 +1,7 @@
 @page "/materials"
 @attribute [Authorize]
 @inject IMasterDataService MasterData
+@inject IMaterialRequirementQueryService MaterialRequirements
 
 <PageTitle>Material Management</PageTitle>
 <h1>Material Management</h1>
@@ -10,7 +11,7 @@
 <ul class="nav nav-tabs mb-3">
     <li class="nav-item"><button class="nav-link @(Tab == "raw" ? "active" : null)" @onclick='() => Tab = "raw"'>Raw Materials</button></li>
     <li class="nav-item"><button class="nav-link @(Tab == "formulations" ? "active" : null)" @onclick='() => Tab = "formulations"'>Formulations</button></li>
-    <li class="nav-item"><button class="nav-link" disabled>Material Requirements</button></li>
+    <li class="nav-item"><button class="nav-link @(Tab == "requirements" ? "active" : null)" @onclick='() => Tab = "requirements"'>Material Requirements</button></li>
 </ul>
 
 @if (Tab == "raw")
@@ -26,6 +27,24 @@
             <button class="btn btn-primary mt-2" type="submit">Create</button>
         </EditForm>
     </Authorized></AuthorizeView>
+}
+else if (Tab == "requirements")
+{
+    <p class="text-muted">Cumulative active demand for every raw material, evaluated at each Required Date of Planned and InProduction plans. Figures below are shown at the last active Required Date.</p>
+    <table class="table table-striped align-middle"><thead><tr><th>Raw Material</th><th class="text-end">Required Quantity</th><th class="text-end">Current Stock</th><th class="text-end">Reserved Stock</th><th class="text-end">Eligible Incoming</th><th class="text-end">Projected Available</th><th>As of</th></tr></thead><tbody>
+    @foreach (var item in Availability)
+    {
+        <tr>
+            <td>@item.RawMaterialCode - @item.RawMaterialName</td>
+            <td class="text-end">@item.RequiredQuantity.ToString("N3") @item.Unit</td>
+            <td class="text-end">@item.CurrentStock.ToString("N3")</td>
+            <td class="text-end">@item.ReservedStock.ToString("N3")</td>
+            <td class="text-end">@item.EligibleIncoming.ToString("N3")</td>
+            <td class="text-end">@Math.Max(item.ProjectedAvailable, 0).ToString("N3") @if (item.ProjectedAvailable < 0) { <span class="badge text-bg-danger ms-1">Negative</span> }</td>
+            <td>@(item.EvaluationDate?.ToString("yyyy-MM-dd") ?? "No active demand")</td>
+        </tr>
+    }
+    </tbody></table>
 }
 else
 {
@@ -45,9 +64,10 @@ else
 @code {
     private string Tab = "raw"; private string? Message;
     private IReadOnlyCollection<RawMaterialDto> RawMaterials = []; private IReadOnlyCollection<FormulationDto> Formulations = [];
+    private IReadOnlyCollection<MaterialAvailabilityDto> Availability = [];
     private RawForm RawInput = new(); private FormulaForm FormulaInput = new();
     protected override async Task OnInitializedAsync() => await ReloadAsync();
-    private async Task ReloadAsync() { RawMaterials = await MasterData.ListRawMaterialsAsync(); Formulations = await MasterData.ListFormulationsAsync(); }
+    private async Task ReloadAsync() { RawMaterials = await MasterData.ListRawMaterialsAsync(); Formulations = await MasterData.ListFormulationsAsync(); Availability = await MaterialRequirements.ListAvailabilityAsync(); }
     private async Task CreateRawAsync() { try { await MasterData.CreateRawMaterialAsync(new(RawInput.Code, RawInput.Name, RawInput.Unit, RawInput.CurrentStock, RawInput.ReservedStock, RawInput.LeadTimeDays, true)); RawInput = new(); Message = "Raw material created."; await ReloadAsync(); } catch (DomainValidationException ex) { Message = ex.Message; } }
     private async Task CreateFormulaAsync() { try { var parts = FormulaInput.Materials.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries); var commands = parts.Select(part => { var pair = part.Split(':', StringSplitOptions.TrimEntries); var raw = RawMaterials.Single(x => x.Code.Equals(pair[0], StringComparison.OrdinalIgnoreCase)); return new FormulationMaterialCommand(raw.Id, decimal.Parse(pair[1], System.Globalization.CultureInfo.InvariantCulture)); }).ToArray(); await MasterData.CreateFormulationAsync(new(FormulaInput.Code, FormulaInput.Name, FormulaInput.BatchSize, true, commands)); FormulaInput = new(); Message = "Formulation created."; await ReloadAsync(); } catch (Exception ex) when (ex is DomainValidationException or FormatException or InvalidOperationException) { Message = ex.Message; } }
     private sealed class RawForm { [System.ComponentModel.DataAnnotations.Required] public string Code { get; set; } = ""; [System.ComponentModel.DataAnnotations.Required] public string Name { get; set; } = ""; public string Unit { get; set; } = "kg"; public decimal CurrentStock { get; set; } public decimal ReservedStock { get; set; } public int LeadTimeDays { get; set; } = 7; }
