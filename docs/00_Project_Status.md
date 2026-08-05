@@ -12,7 +12,8 @@ Updated: 2026-08-05 (Asia/Bangkok)
 | Day 4 Customer Order | Done | Secured list/detail/create/update/transition API and UI; 10-order stable-T seed; RowVersion and lifecycle rules verified | None | Begin Day 5 Production Plan |
 | Day 5 Production Plan | Done | Transactional plan/requirement creation, computed batches, unique order plan, secured API/UI, and stable-T seed | None | Begin Day 6 Material Requirement Query |
 | Day 6 Material Requirement Query | Done | Cumulative active demand by date, Late PO exclusion, Available By Date; 68/68 automated checks passed | None | Begin Day 7 Material Shortage |
-| Day 7-14 | Not Started | - | Locked roadmap | Follow the locked sequence |
+| Day 7 Material Shortage | Done | Shortage 1,250 kg verified on SQL Server; Serializable PR creation returns one success and one 409 under a real race; 86/86 automated checks passed | None | Begin Day 8 Purchase Request approval |
+| Day 8-14 | Not Started | - | Locked roadmap | Follow the locked sequence |
 
 ## Day 1 acceptance evidence
 
@@ -43,20 +44,20 @@ Updated: 2026-08-05 (Asia/Bangkok)
 
 ## Scope audit
 
-- No Day 7-14 business feature has been implemented.
+- No Day 8-14 business feature has been implemented.
 - Generated Counter and Weather demo pages were removed.
 - No Docker, cloud, microservice, WebAssembly, `.Client`, AI-write, RAG, or additional table scope was added.
 - Foundation tests are verification evidence and are not additions to the 15 locked required business tests.
 
 ## Handoff
 
-- Current module: Material Requirement
-- Current task: Day 6 Material Requirement Query
+- Current module: Material Shortage
+- Current task: Day 7 Material Shortage
 - Status: Done
 - Remaining error: None known
 - Last commit: See `git log -1`
-- Next task: Day 7 Material Shortage by date, Late PO exclusion surfacing, and Serializable Purchase Request creation
-- Do not change: locked topology, table count, `SourceProductionPlanId` uniqueness rule, TimeProvider policy, or the unclamped On-hand Available used in calculations
+- Next task: Day 8 Purchase Request submit/approve/reject with concurrency, Incoming PO, and idempotent receipt
+- Do not change: locked topology, table count, `SourceProductionPlanId` uniqueness rule, TimeProvider policy, the unclamped On-hand Available used in calculations, or the Serializable isolation used for Purchase Request creation
 
 ## Day 2 acceptance evidence
 
@@ -127,3 +128,21 @@ Updated: 2026-08-05 (Asia/Bangkok)
 - All four roles including Viewer can read the query; anonymous access returns HTTP 401.
 - Deficit, Shortage Quantity, Material Required Date, and Evaluation Date selection remain unimplemented and belong to Day 7.
 - Latest verification: 68 passed, 0 failed; build 0 warnings/errors; formatting passed; no schema change was introduced.
+
+## Day 7 acceptance evidence
+
+- `IMaterialShortageService` is shared by Blazor and API endpoints; the Material Shortage component has no `DbContext` access.
+- No table, column, or migration was added; the model still contains exactly 14 application entities and `PurchaseRequests` still has no unique `SourceProductionPlanId` index.
+- `Deficit(d)` is `MAX(Cumulative Required(d) - Available By Date(d), 0)`; Shortage Quantity is the largest deficit across the active horizon.
+- Material Required Date is the first date whose deficit exceeds zero, and Evaluation Date is the first date reaching the largest deficit; every displayed figure is read at the Evaluation Date so a row reconciles with itself.
+- A raw material with no active plan produces no shortage row and cannot raise a purchase request.
+- With active plans but no deficit, Shortage Quantity is 0, Material Required Date is null, and the row is evaluated at the last active Required Date.
+- Locked demo case verified against SQL Server Express LocalDB: RM-001 reports Total Requirement 5,000 kg, On-hand Available 3,750 kg, Eligible Incoming 0, Projected Available 3,750 kg, and **Shortage 1,250 kg** required at `T+5`, with `SO-DEMO-001`/`PP-DEMO-001` listed as the affected order.
+- Late purchase orders are surfaced with their delay days and outstanding quantity for visibility, and are never counted as eligible incoming supply.
+- Purchase Request creation recomputes the shortage inside an `IsolationLevel.Serializable` transaction and re-checks for a competing active request immediately before insert.
+- Duplicate prevention covers `Draft` and `PendingApproval` for the same `SourceProductionPlanId` and `RawMaterialId`, enforced in the application service by joining `PurchaseRequests` to `PurchaseRequestItems`. An `Approved` request does not block a new one.
+- Creation is rejected when the recomputed shortage is 0 and when Requested Quantity exceeds the current shortage.
+- Two genuinely concurrent creation requests against LocalDB produced exactly one HTTP 200 and one HTTP 409, leaving a single active request; the verification rows were then removed so the demo database holds no purchase requests.
+- All four roles can read shortages; Viewer receives HTTP 403 on creation and anonymous read returns HTTP 401.
+- Purchase Request submit, approve, and reject remain unimplemented and belong to Day 8, as does writing `LatePurchaseOrder` rows into `Alerts`, which Day 11 owns together with alert deduplication.
+- Latest verification: 86 passed, 0 failed; build 0 warnings/errors; formatting passed; no schema change was introduced.

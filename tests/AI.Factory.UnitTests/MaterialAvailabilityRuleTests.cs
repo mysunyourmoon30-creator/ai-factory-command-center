@@ -99,4 +99,91 @@ public sealed class MaterialAvailabilityRuleTests
     {
         Assert.Empty(MaterialAvailabilityRules.BuildTimeline(100, [], [new(Today.AddDays(2), 500)], Today));
     }
+
+    [Fact]
+    public void Demo_material_is_short_one_thousand_two_hundred_fifty_at_the_required_date()
+    {
+        var requiredDate = Today.AddDays(5);
+        MaterialDemand[] demands = [new(requiredDate, 5_000)];
+        IncomingSupply[] supplies = [new(Today.AddDays(-4), 1_000)];
+
+        var timeline = MaterialAvailabilityRules.BuildTimeline(3_750, demands, supplies, Today);
+        var evaluation = MaterialAvailabilityRules.Evaluate(3_750, timeline);
+
+        Assert.Equal(1_250, evaluation.ShortageQuantity);
+        Assert.Equal(requiredDate, evaluation.MaterialRequiredDate);
+        Assert.Equal(requiredDate, evaluation.EvaluationDate);
+        Assert.Equal(5_000, evaluation.CumulativeRequired);
+        Assert.Equal(0, evaluation.CumulativeIncoming);
+        Assert.Equal(3_750, evaluation.AvailableByDate);
+    }
+
+    [Fact]
+    public void Several_plans_covered_by_later_supply_raise_no_shortage()
+    {
+        MaterialDemand[] demands = [new(Today.AddDays(1), 80), new(Today.AddDays(3), 70)];
+        IncomingSupply[] supplies = [new(Today.AddDays(3), 50)];
+
+        var timeline = MaterialAvailabilityRules.BuildTimeline(100, demands, supplies, Today);
+        var evaluation = MaterialAvailabilityRules.Evaluate(100, timeline);
+
+        Assert.Equal(0, evaluation.ShortageQuantity);
+        Assert.Null(evaluation.MaterialRequiredDate);
+        Assert.Equal(Today.AddDays(3), evaluation.EvaluationDate);
+        Assert.Equal(150, evaluation.CumulativeRequired);
+        Assert.Equal(150, evaluation.AvailableByDate);
+    }
+
+    [Fact]
+    public void Evaluation_date_is_the_first_date_reaching_the_largest_deficit()
+    {
+        MaterialDemand[] demands = [new(Today.AddDays(1), 150), new(Today.AddDays(4), 0)];
+
+        var timeline = MaterialAvailabilityRules.BuildTimeline(100, demands, [], Today);
+        var evaluation = MaterialAvailabilityRules.Evaluate(100, timeline);
+
+        Assert.Equal(50, evaluation.ShortageQuantity);
+        Assert.Equal(Today.AddDays(1), evaluation.MaterialRequiredDate);
+        Assert.Equal(Today.AddDays(1), evaluation.EvaluationDate);
+    }
+
+    [Fact]
+    public void Shortage_grows_to_the_worst_date_not_the_first_one()
+    {
+        MaterialDemand[] demands = [new(Today.AddDays(1), 120), new(Today.AddDays(4), 200)];
+
+        var evaluation = MaterialAvailabilityRules.Evaluate(100, MaterialAvailabilityRules.BuildTimeline(100, demands, [], Today));
+
+        Assert.Equal(220, evaluation.ShortageQuantity);
+        Assert.Equal(Today.AddDays(1), evaluation.MaterialRequiredDate);
+        Assert.Equal(Today.AddDays(4), evaluation.EvaluationDate);
+    }
+
+    [Fact]
+    public void No_active_demand_reports_the_unchanged_on_hand_position()
+    {
+        var evaluation = MaterialAvailabilityRules.Evaluate(-50, []);
+
+        Assert.Equal(0, evaluation.ShortageQuantity);
+        Assert.Null(evaluation.EvaluationDate);
+        Assert.Null(evaluation.MaterialRequiredDate);
+        Assert.Equal(-50, evaluation.AvailableByDate);
+    }
+
+    [Theory]
+    [InlineData(PurchaseRequestStatus.Draft, true)]
+    [InlineData(PurchaseRequestStatus.PendingApproval, true)]
+    [InlineData(PurchaseRequestStatus.Approved, false)]
+    [InlineData(PurchaseRequestStatus.Rejected, false)]
+    public void Only_draft_and_pending_requests_block_a_new_one(PurchaseRequestStatus status, bool expected) =>
+        Assert.Equal(expected, PurchaseRequestRules.IsActive(status));
+
+    [Fact]
+    public void Purchase_order_is_late_once_its_expected_date_passes_with_quantity_outstanding()
+    {
+        Assert.True(PurchaseRequestRules.IsLate(IncomingPurchaseOrderStatus.Open, Today.AddDays(-4), Today, 1_000));
+        Assert.Equal(4, PurchaseRequestRules.CalculateDelayDays(Today.AddDays(-4), Today));
+        Assert.False(PurchaseRequestRules.IsLate(IncomingPurchaseOrderStatus.Open, Today.AddDays(2), Today, 1_000));
+        Assert.False(PurchaseRequestRules.IsLate(IncomingPurchaseOrderStatus.Received, Today.AddDays(-4), Today, 0));
+    }
 }

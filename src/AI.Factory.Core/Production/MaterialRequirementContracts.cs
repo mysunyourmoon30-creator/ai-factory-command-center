@@ -15,10 +15,24 @@ public sealed record MaterialAvailabilityDto(
     decimal ReservedStock,
     decimal OnHandAvailable,
     DateTime? EvaluationDate,
+    DateTime? MaterialRequiredDate,
     decimal RequiredQuantity,
     decimal EligibleIncoming,
     decimal ProjectedAvailable,
+    decimal ShortageQuantity,
     IReadOnlyCollection<MaterialAvailabilityPoint> Timeline);
+
+/// <summary>
+/// The single point on the timeline that every displayed figure is read from, so a shortage row
+/// reconciles with itself. <see cref="MaterialRequiredDate"/> is null when nothing is short.
+/// </summary>
+public sealed record MaterialShortageEvaluation(
+    DateTime? EvaluationDate,
+    DateTime? MaterialRequiredDate,
+    decimal ShortageQuantity,
+    decimal CumulativeRequired,
+    decimal CumulativeIncoming,
+    decimal AvailableByDate);
 
 public sealed record PlanRequirementLineDto(
     long RawMaterialId,
@@ -48,8 +62,8 @@ public interface IMaterialRequirementQueryService
 }
 
 /// <summary>
-/// Locked cumulative demand and availability rules (Master Scope V4, Module 6.1-6.4 and 15.3-15.5).
-/// Deficit and Shortage are deliberately absent; they belong to the Material Shortage module.
+/// Locked cumulative demand, availability, and shortage rules
+/// (Master Scope V4, Module 6.1-6.5 and 15.3-15.6).
 /// </summary>
 public static class MaterialAvailabilityRules
 {
@@ -116,5 +130,36 @@ public static class MaterialAvailabilityRules
                     CalculateAvailableByDate(onHandAvailable, cumulativeIncoming));
             })
             .ToArray();
+    }
+
+    public static decimal CalculateDeficit(decimal cumulativeRequired, decimal availableByDate) =>
+        Math.Max(cumulativeRequired - availableByDate, 0m);
+
+    /// <summary>
+    /// Shortage Quantity is the largest Deficit across the timeline. Material Required Date is the
+    /// first date that runs short, and Evaluation Date is the first date reaching that largest
+    /// deficit. When nothing is short the row is still reported, evaluated at the last active
+    /// Required Date, so the on-hand position stays visible.
+    /// </summary>
+    public static MaterialShortageEvaluation Evaluate(decimal onHandAvailable, IReadOnlyList<MaterialAvailabilityPoint> timeline)
+    {
+        if (timeline.Count == 0)
+        {
+            return new MaterialShortageEvaluation(null, null, 0m, 0m, 0m, onHandAvailable);
+        }
+
+        var deficits = timeline.Select(x => CalculateDeficit(x.CumulativeRequired, x.AvailableByDate)).ToArray();
+        var shortageQuantity = deficits.Max();
+        var shortfallIndex = Array.FindIndex(deficits, x => x > 0);
+        var evaluationIndex = shortageQuantity > 0 ? Array.FindIndex(deficits, x => x == shortageQuantity) : timeline.Count - 1;
+        var evaluation = timeline[evaluationIndex];
+
+        return new MaterialShortageEvaluation(
+            evaluation.RequiredDate,
+            shortfallIndex < 0 ? null : timeline[shortfallIndex].RequiredDate,
+            shortageQuantity,
+            evaluation.CumulativeRequired,
+            evaluation.CumulativeIncoming,
+            evaluation.AvailableByDate);
     }
 }

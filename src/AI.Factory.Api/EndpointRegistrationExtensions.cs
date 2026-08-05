@@ -72,6 +72,7 @@ public static class EndpointRegistrationExtensions
         endpoints.MapCustomerOrderEndpoints();
         endpoints.MapProductionPlanEndpoints();
         endpoints.MapMaterialRequirementEndpoints();
+        endpoints.MapMaterialShortageEndpoints();
 
         return endpoints;
     }

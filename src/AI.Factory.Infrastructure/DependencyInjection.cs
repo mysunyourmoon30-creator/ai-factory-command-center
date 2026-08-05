@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<ICustomerOrderService, CustomerOrderService>();
         services.AddScoped<IProductionPlanService, ProductionPlanService>();
         services.AddScoped<IMaterialRequirementQueryService, MaterialRequirementQueryService>();
+        services.AddScoped<IMaterialShortageService, MaterialShortageService>();
         services.AddSingleton<IOrderRiskCalculator, OrderRiskCalculator>();
 
         services.AddSingleton(CreateTimeProvider(configuration, environmentName));

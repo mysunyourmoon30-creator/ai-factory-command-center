@@ -31,7 +31,7 @@
 else if (Tab == "requirements")
 {
     <p class="text-muted">Cumulative active demand for every raw material, evaluated at each Required Date of Planned and InProduction plans. Figures below are shown at the last active Required Date.</p>
-    <table class="table table-striped align-middle"><thead><tr><th>Raw Material</th><th class="text-end">Required Quantity</th><th class="text-end">Current Stock</th><th class="text-end">Reserved Stock</th><th class="text-end">Eligible Incoming</th><th class="text-end">Projected Available</th><th>As of</th></tr></thead><tbody>
+    <table class="table table-striped align-middle"><thead><tr><th>Raw Material</th><th class="text-end">Required Quantity</th><th class="text-end">Current Stock</th><th class="text-end">Reserved Stock</th><th class="text-end">Eligible Incoming</th><th class="text-end">Projected Available</th><th class="text-end">Shortage Quantity</th><th>As of</th></tr></thead><tbody>
     @foreach (var item in Availability)
     {
         <tr>
@@ -41,6 +41,7 @@ else if (Tab == "requirements")
             <td class="text-end">@item.ReservedStock.ToString("N3")</td>
             <td class="text-end">@item.EligibleIncoming.ToString("N3")</td>
             <td class="text-end">@Math.Max(item.ProjectedAvailable, 0).ToString("N3") @if (item.ProjectedAvailable < 0) { <span class="badge text-bg-danger ms-1">Negative</span> }</td>
+            <td class="text-end">@if (item.ShortageQuantity > 0) { <span class="badge text-bg-danger">@item.ShortageQuantity.ToString("N3")</span> } else { <text>-</text> }</td>
             <td>@(item.EvaluationDate?.ToString("yyyy-MM-dd") ?? "No active demand")</td>
         </tr>
     }

@@ -58,8 +58,8 @@ public sealed class MaterialRequirementQueryService(AppDbContext dbContext, Time
     }
 
     /// <summary>
-    /// Day 6 evaluates the whole active horizon, so the headline row is reported at the last active
-    /// Required Date. A material with no active demand keeps its on-hand position unchanged.
+    /// Every figure is reported at the Evaluation Date chosen by the locked shortage rules, so a row
+    /// reconciles with itself. A material with no active demand keeps its on-hand position unchanged.
     /// </summary>
     private static MaterialAvailabilityDto BuildAvailability(
         RawMaterial material,
@@ -69,7 +69,7 @@ public sealed class MaterialRequirementQueryService(AppDbContext dbContext, Time
     {
         var onHandAvailable = MaterialAvailabilityRules.CalculateOnHandAvailable(material.CurrentStock, material.ReservedStock);
         var timeline = MaterialAvailabilityRules.BuildTimeline(onHandAvailable, demands, supplies, today);
-        var evaluation = timeline.Count == 0 ? null : timeline[^1];
+        var evaluation = MaterialAvailabilityRules.Evaluate(onHandAvailable, timeline);
 
         return new MaterialAvailabilityDto(
             material.Id,
@@ -79,10 +79,12 @@ public sealed class MaterialRequirementQueryService(AppDbContext dbContext, Time
             material.CurrentStock,
             material.ReservedStock,
             onHandAvailable,
-            evaluation?.RequiredDate,
-            evaluation?.CumulativeRequired ?? 0m,
-            evaluation?.CumulativeIncoming ?? 0m,
-            evaluation?.AvailableByDate ?? onHandAvailable,
+            evaluation.EvaluationDate,
+            evaluation.MaterialRequiredDate,
+            evaluation.CumulativeRequired,
+            evaluation.CumulativeIncoming,
+            evaluation.AvailableByDate,
+            evaluation.ShortageQuantity,
             timeline);
     }
 
