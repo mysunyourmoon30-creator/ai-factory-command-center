@@ -1,58 +1,223 @@
 # AI Factory Command Center
 
-Locked-scope portfolio implementation for a factory planning and risk workflow. Days 1-5 now cover the foundation through transactional Production Plan creation.
+A locked-scope portfolio build of a factory planning, procurement, and risk-monitoring system:
+customer orders drive production plans, production plans drive material requirements, material
+shortages drive purchase requests and incoming POs, and a Dashboard/AI Copilot/Machine
+Monitoring layer surfaces risk in real time. Built across 14 locked days per
+[`docs/00_Master_Scope.md`](docs/00_Master_Scope.md); day-by-day acceptance evidence lives in
+[`docs/00_Project_Status.md`](docs/00_Project_Status.md).
+
+All 11 locked modules/screens, 4 roles, 3 machines, 4 read-only AI tools, and all 15 locked
+Required Tests are complete and verified (Days 1-13). Day 14 is portfolio/deployment wrap-up.
 
 ## Architecture
 
-- `AI.Factory.Web`: the only executable ASP.NET Core host; Blazor Interactive Server is global.
-- `AI.Factory.Api`: endpoint assembly referenced by the web host; it has no `Program.cs`.
-- `AI.Factory.Core`: domain entities, enums, rules contracts, and deterministic time abstractions.
-- `AI.Factory.Infrastructure`: EF Core, SQL Server, Identity, dependency registration, and migrations.
-- `AI.Factory.UnitTests` and `AI.Factory.IntegrationTests`: foundation and host smoke verification.
+Modular monolith, one host, one origin. Dependency direction is enforced by project references —
+`AI.Factory.Api` and `AI.Factory.Infrastructure` both depend on `AI.Factory.Core` but never on
+each other; only `AI.Factory.Web` references both.
 
-There is intentionally no `.Client` project. UI components must not access `AppDbContext` directly.
+```mermaid
+graph TD
+    Web["AI.Factory.Web<br/>(sole executable — Blazor Server, Program.cs composition root)"]
+    Api["AI.Factory.Api<br/>(minimal-API endpoints + SignalR Hub, class library, no Program.cs)"]
+    Infra["AI.Factory.Infrastructure<br/>(EF Core, Identity, service implementations, seeders)"]
+    Core["AI.Factory.Core<br/>(entities, DTOs, service interfaces, pure calculation rules)"]
+    DB[("SQL Server / LocalDB")]
+    Ollama["Ollama + Qwen3:4B<br/>(localhost-only, read-only tools)"]
 
-## Prerequisites
+    Web --> Api
+    Web --> Infra
+    Api --> Core
+    Infra --> Core
+    Infra --> DB
+    Web -. "AI Copilot only" .-> Ollama
 
-- .NET SDK 10.0.302 or a compatible later 10.0 SDK
-- SQL Server Express or SQL Server Express LocalDB
-
-The default development connection uses Windows authentication with `(localdb)\\MSSQLLocalDB`. Override it without committing a secret:
-
-```powershell
-$env:AI_FACTORY_CONNECTION_STRING = 'your-connection-string'
+    style Web fill:#2b6cb0,color:#fff
+    style Api fill:#2f855a,color:#fff
+    style Infra fill:#2f855a,color:#fff
+    style Core fill:#805ad5,color:#fff
 ```
 
-## Verify
+- **`AI.Factory.Core`** — no dependencies. Entities, enums, DTOs, command records, service
+  *interfaces*, and pure calculation rules (`ProductionPlanRules`, `OrderRiskCalculator`,
+  `MachineRules`, `PurchaseRequestRules`).
+- **`AI.Factory.Infrastructure`** — `AppDbContext`, EF migrations, ASP.NET Core Identity, every
+  service implementation, the canonical seeders, DI registration.
+- **`AI.Factory.Api`** — Api references **Core only**. Minimal-API endpoint mapping + the
+  `MachineHub` SignalR hub + authorization policy registration.
+- **`AI.Factory.Web`** — the only executable. Composes Api + Infrastructure in `Program.cs`.
+  Blazor Web App, global Interactive Server render mode. No `.Client` project, no WebAssembly.
 
-```powershell
-dotnet restore AI.Factory.CommandCenter.sln
-dotnet build AI.Factory.CommandCenter.sln --no-restore
-dotnet test AI.Factory.CommandCenter.sln --no-build
-dotnet ef database update --project src/AI.Factory.Infrastructure --startup-project src/AI.Factory.Infrastructure
+Every feature is one vertical slice: a Core contract + an Infrastructure service (shared
+verbatim by both the Blazor UI and the JSON API) + an Api endpoint extension + a Razor page.
+
+## Database
+
+14 application tables (verified by an automated invariant test on every build) plus standard
+ASP.NET Core Identity tables. EF Core migrations are the schema source of truth;
+[`deploy/database.sql`](deploy/database.sql) is the regenerated idempotent SQL fallback.
+
+```mermaid
+erDiagram
+    RawMaterials ||--o{ FormulationMaterials : "recipe uses"
+    Formulations ||--o{ FormulationMaterials : "recipe defines"
+    Formulations ||--o{ CustomerOrders : "ordered as"
+    CustomerOrders |o--o| ProductionPlans : "planned by"
+    Machines ||--o{ ProductionPlans : "assigned to"
+    ProductionPlans ||--o{ MaterialRequirements : "requires"
+    RawMaterials ||--o{ MaterialRequirements : "required as"
+    ProductionPlans ||--o{ PurchaseRequests : "sources"
+    PurchaseRequests ||--o{ PurchaseRequestItems : "requests"
+    RawMaterials ||--o{ PurchaseRequestItems : "requested"
+    PurchaseRequests |o--o| IncomingPurchaseOrders : "fulfilled by"
+    IncomingPurchaseOrders ||--o{ IncomingPurchaseOrderItems : "receives"
+    RawMaterials ||--o{ IncomingPurchaseOrderItems : "received as"
+
+    RawMaterials {
+        bigint Id PK
+        nvarchar Code UK
+        decimal CurrentStock
+        decimal ReservedStock
+        rowversion RowVersion
+    }
+    Formulations {
+        bigint Id PK
+        nvarchar Code UK
+        decimal BatchSize
+    }
+    CustomerOrders {
+        bigint Id PK
+        nvarchar OrderNumber UK
+        bigint FormulationId FK
+        decimal Quantity
+        nvarchar Status "Lifecycle"
+        rowversion RowVersion
+    }
+    ProductionPlans {
+        bigint Id PK
+        nvarchar PlanNumber UK
+        bigint CustomerOrderId FK "unique — one plan per order"
+        bigint MachineId FK
+        int RequiredBatch "server-computed"
+        nvarchar Status "Lifecycle"
+        rowversion RowVersion
+    }
+    Machines {
+        bigint Id PK
+        nvarchar MachineCode UK
+        nvarchar RunningStatus
+        decimal Temperature
+        nvarchar AlertStatus "server-computed"
+        rowversion RowVersion
+    }
+    MaterialRequirements {
+        bigint Id PK
+        bigint ProductionPlanId FK
+        bigint RawMaterialId FK
+        decimal RequiredQuantity "server-computed"
+    }
+    PurchaseRequests {
+        bigint Id PK
+        nvarchar RequestNumber UK
+        bigint SourceProductionPlanId FK "non-unique index"
+        nvarchar Status
+        rowversion RowVersion
+    }
+    IncomingPurchaseOrders {
+        bigint Id PK
+        bigint PurchaseRequestId FK UK "at most one PO per PR"
+        nvarchar Status
+        rowversion RowVersion
+    }
+    Alerts {
+        bigint Id PK
+        nvarchar AlertType
+        nvarchar EntityName
+        bigint EntityId "loose ref, filtered unique index when active"
+        bit IsActive
+    }
+    AuditLogs {
+        bigint Id PK
+        nvarchar Action
+        nvarchar Username
+        nvarchar Result "append-only — no Update/Delete API"
+    }
+    AiToolExecutionLogs {
+        bigint Id PK
+        nvarchar ToolName
+        nvarchar Result
+    }
 ```
 
-Seed the locked demo identities (safe to run repeatedly):
+`Alerts`, `AuditLogs`, and `AiToolExecutionLogs` reference other entities loosely by
+`EntityName`/`EntityId` rather than a formal foreign key, since they log against any entity type.
+Four read-only SQL views (`vw_ProductionRiskReport`, `vw_MaterialShortageReport`,
+`vw_PurchaseOrderStatusReport`, `vw_AuditLogReport`) back CSV exports and never count toward the
+14-table limit.
+
+## Modules
+
+| # | Module | Roles that can write |
+|---|---|---|
+| 1 | Authentication (login/logout, 4 roles, audit) | — |
+| 2 | Master Data (Raw Materials, Formulations) | Admin, Planner |
+| 3 | Customer Orders | Admin, Planner |
+| 4 | Production Plans (computed batches, material requirements) | Admin, Planner |
+| 5 | Material Requirements query (cumulative availability by date) | read-only, all roles |
+| 6 | Material Shortage + Purchase Request creation | Admin, Manager, Planner |
+| 7 | Procurement (PR Submit/Approve/Reject, Incoming PO, receipt) | Admin, Manager (submit: + Planner) |
+| 8 | Dashboard + Reports (KPI, CSV export) | read-only, all roles |
+| 9 | AI Factory Copilot (4 allow-listed read-only tools, Ollama-backed) | read-only, all roles |
+| 10 | Machine Monitoring (SignalR live push, Simulate Update) | Admin (simulate only) |
+| 11 | Audit Log + Demo User Management | Admin, Manager (view); Admin (manage users) |
+
+## Getting started
+
+**Primary path** (needs the .NET SDK):
 
 ```powershell
-dotnet run --project src/AI.Factory.Web -- --seed-identity
-dotnet run --project src/AI.Factory.Web -- --seed-master-data
-dotnet run --project src/AI.Factory.Web -- --seed-customer-orders
-dotnet run --project src/AI.Factory.Web -- --seed-production-plans
+.\deploy\setup.ps1
+dotnet run --project src/AI.Factory.Web
 ```
 
-Demo users are `admin.demo`, `manager.demo`, `planner.demo`, and `viewer.demo`; the locked demo-only password is `Demo@12345`. These credentials must never be reused outside the demo environment.
+**Fallback path** (no SDK/EF tooling — needs `sqlcmd`) and full IIS/troubleshooting instructions:
+see [`deploy/installation-guide.md`](deploy/installation-guide.md).
 
-Authentication uses the single-host Identity cookie with `HttpOnly`, `Secure`, and `SameSite=Lax`. Every form write requires an antiforgery token. API authorization failures return HTTP 401/403 and are written to the append-only audit log.
+Demo users (password `Demo@12345` for all — demo-only, never reuse):
 
-The master-data seed adds the locked 10 raw materials and five balanced formulations. It inserts missing codes only and is safe to run repeatedly.
+| Username | Role |
+|---|---|
+| `admin.demo` | Admin |
+| `manager.demo` | Manager |
+| `planner.demo` | Planner |
+| `viewer.demo` | Viewer |
 
-The Customer Order seed adds the locked 10 orders. Its canonical date `T` is stored in `SO-DEMO-001.CreatedAt`, so rerunning the seed neither duplicates orders nor moves their dates.
+## Running the tests
 
-The Production Plan seed adds the three machine references, eight locked plans, and their computed Material Requirements. It uses the same stored `T` and is safe to run repeatedly.
+```powershell
+.\.dotnet\dotnet.exe test AI.Factory.CommandCenter.sln
+```
 
-The schema source of truth is the EF migration under `src/AI.Factory.Infrastructure/Persistence/Migrations`. The generated idempotent fallback is `deploy/database.sql`.
+198 automated tests (89 unit, 109 integration) covering all 15 locked Required Tests — see
+[`docs/00_Project_Status.md`](docs/00_Project_Status.md)'s Day 12 acceptance evidence for the
+full Test 1-15 traceability matrix. `AI.Factory.UnitTests` includes invariant guards
+(`FoundationContractTests`) that fail the build if the table count or a locked constraint drifts.
+`AI.Factory.IntegrationTests` boots the real host against an EF Core InMemory database with a
+frozen `TimeProvider`.
+
+```powershell
+.\.dotnet\dotnet.exe format --verify-no-changes
+```
+
+## Technology
+
+ASP.NET Core 10 (Blazor Server, global Interactive Server) · EF Core 10 / SQL Server ·
+ASP.NET Core Identity · SignalR · Serilog · Ollama (Qwen3:4B, localhost-only, read-only) · xUnit
 
 ## Scope discipline
 
-The project is locked to one business flow, 11 modules, 11 screens, four roles, four read-only AI tools, 14 application tables, three machines, and 15 required business tests. New scope is prohibited until the locked Definition of Done passes.
+Locked to one business flow: 11 modules/screens, 4 roles, 3 machines, 4 read-only AI tools, 14
+application tables, 15 required business tests. No Docker, cloud deployment, microservices,
+WebAssembly, AI write-access, or additional scope — see
+[`docs/00_Master_Scope.md`](docs/00_Master_Scope.md) for the complete locked boundary and
+[`docs/00_Project_Status.md`](docs/00_Project_Status.md) for day-by-day proof every boundary held.

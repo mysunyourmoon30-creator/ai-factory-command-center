@@ -2,6 +2,8 @@
 
 `database.sql` is generated from EF Core migrations with the idempotent option. EF migrations remain the schema source of truth.
 
+See [`installation-guide.md`](installation-guide.md) for full step-by-step instructions (prerequisites, both paths below, IIS Installation, Sample Login, Troubleshooting). This file stays a short index.
+
 ## Primary path
 
 Run `setup.ps1` from the repo root. It applies EF Core migrations, then seeds the canonical demo dataset. Idempotent - safe to rerun.

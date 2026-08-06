@@ -19,7 +19,7 @@ Updated: 2026-08-06 (Asia/Bangkok)
 | Day 11 Machine Simulator, SignalR, Alert Deduplication, Audit Page | Done | Locked Machine Alert Rule boundaries verified by unit test; live SignalR broadcast and automatic reconnect verified against the running app; `vw_AuditLogReport` CSV content verified live on LocalDB; 197/197 automated checks passed | Fixed a test-order-dependency bug in this day's own new tests (see acceptance evidence) | All 11 locked modules/screens are now built — begin Day 12+ release-hardening scope (§Day 13–14 Release Verification, full 15-business-test coverage confirmation) per `00_Master_Scope_Final_Locked_V4.md` |
 | Day 12 15 Required Tests Traceability | Done | All 15 locked Required Tests (Test 1-15, Test 11 Case A+B) traced to a covering automated test or fresh live evidence; closed 2 real gaps (Test 3 Update-not-Create, Test 15 Reports/core-API-while-Ollama-down); re-verified Test 11's two concurrency races live on LocalDB; 198/198 automated checks passed | None | Begin Day 13 Release Verification Checklist per `00_Master_Scope_Final_Locked_V4.md` §Day 13-14 |
 | Day 13 Release Verification Checklist, Setup Scripts | Done | All 13 checklist items verified (7 already covered by Days 1-12, 4 satisfied by existing code and now evidenced, 2 newly live-verified); `deploy/setup.ps1` and `deploy/seed-data.sql` verified end-to-end against fresh throwaway LocalDB databases, including a real login using the copied Identity password hash; found and fixed a real deployment-script bug (see acceptance evidence); 198/198 automated checks passed | IIS Local and IIS-restart-recovery are an environment finding, not verified — no IIS, no ASP.NET Core Hosting Bundle, and no Administrator rights on this machine (user-confirmed: defer, same treatment as Day 10's Ollama finding) | Begin Day 14 portfolio deliverables (README, diagrams, demo video, CV, job applications) per `00_Master_Scope_Final_Locked_V4.md` §23.1 — explicitly the user's own responsibility, not a coding task |
-| Day 14 | Not Started | - | Locked roadmap — portfolio deliverables, not a coding task | User's own responsibility per §23.1 |
+| Day 14 (partial: README, Installation Guide, diagrams) | Doing | Root `README.md` rewritten (architecture + ER Mermaid diagrams, all 11 modules, setup instructions); `deploy/installation-guide.md` added (the locked deploy/ file layout's missing 5th file); found and fixed a real data-integrity leftover in the canonical demo DB (see below); 198/198 automated checks unaffected | Remaining Day 14 items (Demo Video, updated CV, 30 job applications) are explicitly the user's own responsibility per §23.1, not attempted here. A separate confirmed gap was found and spun off as its own task rather than fixed inline: the canonical seed is missing the locked spec's required "1 existing Purchase Request" and "1 existing Incoming PO" (both currently 0) | User's own responsibility for the remaining portfolio items per §23.1; separately, pick up the spun-off Purchase Request/Incoming PO seeding task when ready |
 
 ## Day 1 acceptance evidence
 
@@ -59,16 +59,18 @@ Updated: 2026-08-06 (Asia/Bangkok)
 - Foundation tests are verification evidence and are not additions to the 15 locked required business tests.
 - Day 12 added no feature, table, endpoint, or migration — it closed 2 real test-coverage gaps (2 test methods touched: one added, one extended) and re-verified 2 concurrency scenarios live against LocalDB, per the locked doc's own "ห้ามเพิ่ม Required Test เกิน 15 ก่อน 15 Tests นี้ผ่าน" (don't add more than the 15 Required Tests before these 15 pass) — this day made the existing 15 pass, it did not add a 16th.
 - Day 13 added no feature, table, or endpoint — 3 new `deploy/` scripts (`setup.ps1`, `seed-data.sql`, `publish-iis.ps1`, all named in the locked file layout) and one small edit to 2 already-shipped migrations' `Up()` method bodies (see acceptance evidence for why), consistent with the checklist's own framing: "รายการนี้เป็น Release Verification ไม่ใช่ Feature" (this list is Release Verification, not a Feature).
+- Day 14 (partial) added no feature, table, or endpoint — a README rewrite, one new `deploy/` doc file (`installation-guide.md`, the last file named in the locked `deploy/` layout that hadn't been created yet), and a data-only fix restoring Machine-01 to its canonical seed values (via the app's own API, not a direct database write). Screenshots, Demo Video, CV, and job applications were explicitly out of scope for this pass per user direction.
 
 ## Handoff
 
-- Current module: N/A — Day 13 was deployment scripting and release verification, not a feature module
-- Current task: Day 13 Release Verification Checklist, Setup Scripts
-- Status: Done
+- Current module: N/A — Day 13-14 (partial) were deployment scripting, release verification, and documentation, not a feature module
+- Current task: Day 14 (partial) — README, Installation Guide, Architecture/Database diagrams
+- Status: Doing (user-scoped subset done; remaining Day 14 items are the user's own responsibility)
 - Remaining error: None known
 - Last commit: See `git log -1`
-- Next task: Day 14 portfolio deliverables (README, Installation Guide, Architecture Diagram, Database Diagram, Screenshots, Demo Video, updated CV, 30 job applications) per `00_Master_Scope_Final_Locked_V4.md` §23.1 and the Day 14 Definition-of-Done items — explicitly the user's own responsibility, not a coding task. If asked to help draft README/diagram/installation-guide *content*, that's a reasonable coding-adjacent request; the job-application and CV work is not.
+- Next task: Two independent threads remain. (1) The user's own Day 14 portfolio work — Screenshots, Demo Video, updated CV, 30 job applications per §23.1 — not a coding task; offer to help draft *content* if asked (e.g. a demo script, README-derived talking points), but the applications/CV/video themselves are the user's. (2) A spun-off follow-up task exists to seed the locked spec's required 1 Purchase Request + 1 Incoming PO into the canonical dataset (currently 0 of each — see Day 14 acceptance evidence for why and what's needed).
 - Outstanding, not yet verified: **IIS Local runs** and **IIS restart recovery** (2 of the Day 13 checklist's items) — this machine has no IIS, no ASP.NET Core Hosting Bundle, and no Administrator rights, so `publish-iis.ps1` was written to Microsoft's documented process but never executed. Whoever has access to an elevated session on a machine with IIS available should run it and confirm both items before Gate 4 is called fully done.
+- Outstanding: canonical seed is missing 1 Purchase Request + 1 Incoming PO per the locked spec's own seed-data requirement (see the spun-off follow-up task above).
 - Do not change: locked topology, table count (view entities via `.ToView` never count toward it), `SourceProductionPlanId` uniqueness rule, TimeProvider policy, the unclamped On-hand Available used in calculations, the Serializable isolation used for Purchase Request creation, the receipt endpoint's cumulative-quantity contract, the report views' no-time-relative-math rule, any `.ToString("yyyy-MM-dd", ...)` call's explicit `CultureInfo.InvariantCulture`, the 4-tool AI allow-list (never add a 5th or a write tool), the localhost-only Ollama guard, the `/health`-and-`/api` exclusion from the Blazor redirect/status-code-page middleware, the Machine Alert Rule boundaries (`<85`/`85-94.99`/`≥95` Running, always Warning when Stopped), the alert dedup unique filtered index, `IMachineUpdateNotifier`'s no-op-default/Web-override registration order, the audit log CSV export's narrower `CanViewAuditLog` gate (not the generic `CanExportReports`), the 15-Required-Tests cap (do not add a 16th required test), the `EXEC(N'CREATE VIEW ...')` wrapping in the two report-view migrations (needed so `deploy/database.sql` runs via `sqlcmd`, not just via `dotnet ef database update` — see Day 13 acceptance evidence), or `setup.ps1`'s dual `AI_FACTORY_CONNECTION_STRING`/`ConnectionStrings__AiFactory` environment variables (both are required — one for each of the script's two steps, see the script's own comment)
 
 ## Day 2 acceptance evidence
@@ -267,3 +269,44 @@ No feature, table, or endpoint was added this day — the locked checklist itsel
 - **`deploy/seed-data.sql`** (new, fallback path) - generated from a freshly-seeded database via a one-off script, not hand-written, specifically so its ASP.NET Identity `PasswordHash` values are genuinely valid. Live-verified the full fallback chain: fresh database → `database.sql` (schema) → `seed-data.sql` (data) → row counts match the canonical seed exactly → **a real login as `admin.demo`/`Demo@12345` against the restored database succeeded** (302 redirect, auth cookie set), proving the copied password hash actually works. `rowversion`/`timestamp` columns (6 of them, e.g. `RawMaterials.RowVersion`) are excluded from the generated `INSERT`s since SQL Server never allows explicit values for them.
 - **`deploy/publish-iis.ps1`** (new) - written to Microsoft's documented ASP.NET Core IIS-hosting steps; the `dotnet publish` step and its web.config `<environmentVariables>` XML-editing logic were tested against a real publish output (and one XML-path bug was caught and fixed: the generated web.config nests `aspNetCore` under `configuration.location.system.webServer`, not directly under `system.webServer`). The IIS-specific steps (app pool, site, ACLs) are **not executed or verified** - see item 9 above.
 - Latest verification: 198 passed (89 unit + 109 integration), 0 failed; build 0 warnings/errors; `dotnet format --verify-no-changes` passed; 14 application tables unchanged; all throwaway verification databases dropped afterward.
+
+## Day 14 acceptance evidence (partial — README, Installation Guide, diagrams)
+
+Day 14's locked checklist mixes coding-adjacent deliverables (README, diagrams, installation
+guide) with items explicitly named the user's own responsibility in §23.1 (Demo Video, updated
+CV, 30 job applications). This pass covers only the former, by explicit user choice.
+
+- Root `README.md` rewritten from its Day-5-era state (it still said "Days 1-5 now cover...")
+  to reflect all 13 completed days: the layered architecture with an embedded Mermaid diagram,
+  a Database section with an embedded Mermaid ER diagram (all 14 application tables, their real
+  foreign keys, and cardinalities matching actual constraints — e.g. the zero-or-one
+  `CustomerOrders`-`ProductionPlans` relationship reflects the real unique index on
+  `ProductionPlans.CustomerOrderId`), the 11-module table, Getting Started for both the primary
+  (`setup.ps1`) and fallback (raw SQL) paths, the demo user/role table, and the test-running
+  section (198 tests, `FoundationContractTests` invariant guards).
+- `deploy/installation-guide.md` added — the 5th file named in the locked `deploy/` layout
+  (line 2464-2470 of the locked spec) that had never been created; Days 9-13 only ever produced
+  `database.sql`, `seed-data.sql`, `setup.ps1`, `publish-iis.ps1`, and a supplementary
+  `README.md`. Covers every locked `06_Deployment_User_Guide.md` subsection (IIS Installation,
+  SQL Setup, EF Migration, Seed Data, PowerShell Setup, Sample Login, Troubleshooting) at the
+  practical `deploy/` level rather than duplicating it into a separate `docs/06_...md` as well.
+  `deploy/README.md` now points to it instead of re-explaining the same steps.
+- **Found and fixed a real data-integrity leftover, not a product defect**: while gathering
+  accurate figures for the README's diagrams, the canonical `AI_Factory_CommandCenter` database
+  showed Machine-01 at Running/96°C/Critical and 5 active alerts. Both were leftovers from Day
+  11's own live SignalR verification (`Simulate Update` was called against Machine-01 twice to
+  prove the broadcast path) that were never reverted — unlike Day 7's purchase-request
+  verification cleanup, which explicitly deleted its rows afterward. Fixed by restoring
+  Machine-01 to its canonical seed values (Running/72°C/80/Normal) and letting the app's own
+  `AlertEvaluationService` re-resolve the now-stale alert on the next read (via a real
+  authenticated `GET /api/dashboard/alerts` call, not a direct database write) — active alerts
+  are back to exactly 4, matching the locked spec's "Initial Alerts 4" seed-data requirement.
+- **Found and deferred a real, separate gap**: the locked spec's "Seed Data ต้องมี" list
+  (line 2482-2493) requires the canonical dataset to include 1 existing Purchase Request and 1
+  existing Incoming Purchase Order; both are currently 0 (confirmed via `sqlcmd`) because every
+  day that has touched PRs/POs (Days 7, 8, 12) deliberately created-then-deleted its verification
+  rows to keep the dataset "pristine," which satisfied those days' own goals but never actually
+  seeded the locked baseline. This needs a real seeder addition (not a quick SQL insert), so it
+  was spun off as its own follow-up task rather than done inline during a documentation pass.
+- Latest verification: 198 passed (89 unit + 109 integration), 0 failed; build 0 warnings/errors;
+  `dotnet format --verify-no-changes` passed; no schema or endpoint change this pass.
