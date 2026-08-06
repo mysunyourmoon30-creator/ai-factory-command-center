@@ -715,6 +715,7 @@ IF NOT EXISTS (
     WHERE [MigrationId] = N'20260805142818_AddReportViews'
 )
 BEGIN
+    EXEC(N'
     CREATE VIEW vw_ProductionRiskReport AS
     SELECT
         pp.Id AS ProductionPlanId,
@@ -730,6 +731,7 @@ BEGIN
     JOIN CustomerOrders co ON co.Id = pp.CustomerOrderId
     JOIN Formulations f ON f.Id = co.FormulationId
     JOIN Machines m ON m.Id = pp.MachineId
+    ')
 END;
 
 IF NOT EXISTS (
@@ -737,6 +739,7 @@ IF NOT EXISTS (
     WHERE [MigrationId] = N'20260805142818_AddReportViews'
 )
 BEGIN
+    EXEC(N'
     CREATE VIEW vw_PurchaseOrderStatusReport AS
     SELECT
         po.Id AS IncomingPurchaseOrderId,
@@ -751,6 +754,7 @@ BEGIN
     JOIN PurchaseRequests pr ON pr.Id = po.PurchaseRequestId
     JOIN IncomingPurchaseOrderItems i ON i.IncomingPurchaseOrderId = po.Id
     GROUP BY po.Id, po.PurchaseOrderNumber, pr.RequestNumber, po.ExpectedDate, po.ReceivedDate, po.Status
+    ')
 END;
 
 IF NOT EXISTS (
@@ -758,6 +762,7 @@ IF NOT EXISTS (
     WHERE [MigrationId] = N'20260805142818_AddReportViews'
 )
 BEGIN
+    EXEC(N'
     CREATE VIEW vw_MaterialShortageReport AS
     SELECT
         pp.Id AS ProductionPlanId,
@@ -773,6 +778,7 @@ BEGIN
     FROM MaterialRequirements mr
     JOIN RawMaterials rm ON rm.Id = mr.RawMaterialId
     JOIN ProductionPlans pp ON pp.Id = mr.ProductionPlanId
+    ')
 END;
 
 IF NOT EXISTS (
@@ -793,6 +799,7 @@ IF NOT EXISTS (
     WHERE [MigrationId] = N'20260806001639_AddAuditLogReportView'
 )
 BEGIN
+    EXEC(N'
     CREATE VIEW vw_AuditLogReport AS
     SELECT
         a.Id,
@@ -805,6 +812,7 @@ BEGIN
         a.RequestId,
         a.CreatedAt
     FROM AuditLogs a
+    ')
 END;
 
 IF NOT EXISTS (

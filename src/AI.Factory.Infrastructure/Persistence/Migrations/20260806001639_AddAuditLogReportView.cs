@@ -10,7 +10,9 @@ namespace AI.Factory.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // See AddReportViews.Up for why CREATE VIEW is wrapped in EXEC(N'...') here.
             migrationBuilder.Sql("""
+                EXEC(N'
                 CREATE VIEW vw_AuditLogReport AS
                 SELECT
                     a.Id,
@@ -23,6 +25,7 @@ namespace AI.Factory.Infrastructure.Persistence.Migrations
                     a.RequestId,
                     a.CreatedAt
                 FROM AuditLogs a
+                ')
                 """);
         }
 

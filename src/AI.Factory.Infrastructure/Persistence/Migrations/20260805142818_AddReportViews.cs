@@ -10,7 +10,12 @@ namespace AI.Factory.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // EXEC(N'...') keeps CREATE VIEW out of the surrounding batch: dotnet ef database update applies each
+            // Sql() call as its own command already, but the generated idempotent deploy/database.sql concatenates
+            // every operation from a migration into one BEGIN TRANSACTION...GO batch, and CREATE VIEW must be the
+            // first statement in its batch. A bare CREATE VIEW here works via EF but breaks that script under sqlcmd.
             migrationBuilder.Sql("""
+                EXEC(N'
                 CREATE VIEW vw_ProductionRiskReport AS
                 SELECT
                     pp.Id AS ProductionPlanId,
@@ -26,9 +31,11 @@ namespace AI.Factory.Infrastructure.Persistence.Migrations
                 JOIN CustomerOrders co ON co.Id = pp.CustomerOrderId
                 JOIN Formulations f ON f.Id = co.FormulationId
                 JOIN Machines m ON m.Id = pp.MachineId
+                ')
                 """);
 
             migrationBuilder.Sql("""
+                EXEC(N'
                 CREATE VIEW vw_PurchaseOrderStatusReport AS
                 SELECT
                     po.Id AS IncomingPurchaseOrderId,
@@ -43,9 +50,11 @@ namespace AI.Factory.Infrastructure.Persistence.Migrations
                 JOIN PurchaseRequests pr ON pr.Id = po.PurchaseRequestId
                 JOIN IncomingPurchaseOrderItems i ON i.IncomingPurchaseOrderId = po.Id
                 GROUP BY po.Id, po.PurchaseOrderNumber, pr.RequestNumber, po.ExpectedDate, po.ReceivedDate, po.Status
+                ')
                 """);
 
             migrationBuilder.Sql("""
+                EXEC(N'
                 CREATE VIEW vw_MaterialShortageReport AS
                 SELECT
                     pp.Id AS ProductionPlanId,
@@ -61,6 +70,7 @@ namespace AI.Factory.Infrastructure.Persistence.Migrations
                 FROM MaterialRequirements mr
                 JOIN RawMaterials rm ON rm.Id = mr.RawMaterialId
                 JOIN ProductionPlans pp ON pp.Id = mr.ProductionPlanId
+                ')
                 """);
         }
 
