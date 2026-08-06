@@ -1,0 +1,131 @@
+@page "/machine-monitoring"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.SignalR.Client
+@inject IMachineService Machines
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@implements IAsyncDisposable
+
+<PageTitle>Machine Monitoring</PageTitle>
+<h1>Machine Monitoring</h1>
+<p class="text-muted">Live connection: <span class="badge @(IsConnected ? "text-bg-success" : "text-bg-secondary")">@(IsConnected ? "Connected" : "Connecting...")</span></p>
+@if (!string.IsNullOrWhiteSpace(Message)) { <div class="alert alert-info">@Message</div> }
+
+<div class="row g-3">
+    @foreach (var machine in MachineList)
+    {
+        <div class="col-md-4">
+            <div class="card p-3">
+                <h2 class="h5">@machine.MachineCode - @machine.MachineName</h2>
+                <dl class="row mb-0">
+                    <dt class="col-6">Running Status</dt><dd class="col-6">@machine.RunningStatus</dd>
+                    <dt class="col-6">Temperature</dt><dd class="col-6">@machine.Temperature.ToString("N1", CultureInfo.InvariantCulture)&deg;C</dd>
+                    <dt class="col-6">Speed</dt><dd class="col-6">@machine.Speed.ToString("N1", CultureInfo.InvariantCulture)</dd>
+                    <dt class="col-6">Alert</dt><dd class="col-6"><span class="badge @AlertClass(machine.AlertStatus)">@machine.AlertStatus</span></dd>
+                    <dt class="col-6">Last Updated</dt><dd class="col-6">@machine.LastUpdated.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</dd>
+                </dl>
+                <AuthorizeView Policy="@PolicyNames.CanUpdateMachineSimulator">
+                    <Authorized Context="simulateAuthorization">
+                        <button class="btn btn-sm btn-outline-secondary mt-2" @onclick="() => SelectForSimulate(machine)">Simulate Update</button>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+        </div>
+    }
+</div>
+
+@if (SelectedForSimulate is not null)
+{
+    <h2 class="h4 mt-4">Simulate Update — @SelectedForSimulate.MachineCode</h2>
+    <EditForm Model="Input" OnValidSubmit="SimulateAsync">
+        <DataAnnotationsValidator /><ValidationSummary />
+        <div class="row g-2">
+            <div class="col-md-3">
+                <label class="form-label">Running status</label>
+                <InputSelect class="form-select" @bind-Value="Input.RunningStatus">
+                    <option value="Running">Running</option>
+                    <option value="Stopped">Stopped</option>
+                </InputSelect>
+            </div>
+            <div class="col-md-3"><label class="form-label">Temperature (°C)</label><InputNumber class="form-control" @bind-Value="Input.Temperature" /></div>
+            <div class="col-md-3"><label class="form-label">Speed</label><InputNumber class="form-control" @bind-Value="Input.Speed" /></div>
+        </div>
+        <button class="btn btn-primary mt-2" type="submit">Update</button>
+        <button class="btn btn-outline-secondary mt-2" type="button" @onclick="() => SelectedForSimulate = null">Cancel</button>
+    </EditForm>
+}
+
+@code {
+    private IReadOnlyCollection<MachineDto> MachineList = [];
+    private MachineDto? SelectedForSimulate;
+    private SimulateInput Input = new();
+    private string? Message;
+    private HubConnection? _hubConnection;
+    private bool IsConnected => _hubConnection?.State == HubConnectionState.Connected;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/machines"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On<MachineDto>("MachineUpdated", updated =>
+        {
+            MachineList = MachineList.Select(x => x.Id == updated.Id ? updated : x).ToArray();
+            InvokeAsync(StateHasChanged);
+        });
+
+        await _hubConnection.StartAsync();
+    }
+
+    private async Task ReloadAsync() => MachineList = await Machines.ListAsync();
+
+    private void SelectForSimulate(MachineDto machine)
+    {
+        SelectedForSimulate = machine;
+        Input = new SimulateInput { RunningStatus = machine.RunningStatus, Temperature = machine.Temperature, Speed = machine.Speed };
+    }
+
+    private async Task SimulateAsync()
+    {
+        if (SelectedForSimulate is null) return;
+        try
+        {
+            var updated = await Machines.SimulateUpdateAsync(
+                SelectedForSimulate.Id,
+                new SimulateMachineUpdateCommand(Input.RunningStatus, Input.Temperature, Input.Speed, SelectedForSimulate.RowVersion),
+                await CurrentActorAsync());
+            Message = updated is null ? "Machine not found." : $"{updated.MachineCode} updated.";
+            await ReloadAsync();
+            SelectedForSimulate = null;
+        }
+        catch (Exception ex) when (ex is DomainValidationException or ConcurrencyConflictException) { Message = ex.Message; }
+    }
+
+    private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+
+    private static string AlertClass(RiskStatus risk) => risk switch
+    {
+        RiskStatus.Critical => "text-bg-danger",
+        RiskStatus.Warning => "text-bg-warning",
+        _ => "text-bg-success"
+    };
+
+    private sealed class SimulateInput
+    {
+        public MachineRunningStatus RunningStatus { get; set; }
+        [System.ComponentModel.DataAnnotations.Range(0, double.MaxValue)] public decimal Temperature { get; set; }
+        [System.ComponentModel.DataAnnotations.Range(0, double.MaxValue)] public decimal Speed { get; set; }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+    }
+}

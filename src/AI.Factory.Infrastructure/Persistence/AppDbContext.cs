@@ -27,6 +27,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<ProductionRiskReportRow> ProductionRiskReport => Set<ProductionRiskReportRow>();
     public DbSet<PurchaseOrderStatusReportRow> PurchaseOrderStatusReport => Set<PurchaseOrderStatusReportRow>();
     public DbSet<MaterialShortageReportRow> MaterialShortageReport => Set<MaterialShortageReportRow>();
+    public DbSet<AuditLogReportRow> AuditLogReport => Set<AuditLogReportRow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -277,6 +278,11 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.HasNoKey();
             entity.ToView("vw_MaterialShortageReport");
             entity.Property(x => x.PlanStatus).HasConversion<string>();
+        });
+        modelBuilder.Entity<AuditLogReportRow>(entity =>
+        {
+            entity.HasNoKey();
+            entity.ToView("vw_AuditLogReport");
         });
     }
 }

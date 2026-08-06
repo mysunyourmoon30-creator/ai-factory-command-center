@@ -81,4 +81,24 @@ public sealed class ReportExportService(
                 };
             }));
     }
+
+    public async Task<byte[]> ExportAuditLogCsvAsync(CancellationToken cancellationToken = default)
+    {
+        var rows = await dbContext.AuditLogReport.AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .ToArrayAsync(cancellationToken);
+
+        return CsvSecurity.WriteCsv(
+            ["Username", "Action", "Entity", "Entity Id", "Result", "Request Id", "Created At"],
+            rows.Select(x => new string?[]
+            {
+                x.Username,
+                x.Action,
+                x.EntityName,
+                x.EntityId?.ToString(),
+                x.Result,
+                x.RequestId,
+                x.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)
+            }));
+    }
 }

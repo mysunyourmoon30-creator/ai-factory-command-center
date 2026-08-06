@@ -30,6 +30,12 @@ public static class ReportEndpointExtensions
         exports.MapGet("/purchase-order-status/export.csv", async (IReportExportService service, CancellationToken ct) =>
             Results.File(await service.ExportPurchaseOrderStatusCsvAsync(ct), "text/csv; charset=utf-8", "purchase-order-status-report.csv"));
 
+        // Audit Log Report export is gated by CanViewAuditLog (Admin+Manager), not the generic
+        // CanExportReports (all four roles) — nobody should export a log they can't view.
+        reports.MapGet("/audit-log/export.csv", async (IReportExportService service, CancellationToken ct) =>
+                Results.File(await service.ExportAuditLogCsvAsync(ct), "text/csv; charset=utf-8", "audit-log-report.csv"))
+            .RequireAuthorization(PolicyNames.CanViewAuditLog);
+
         return endpoints;
     }
 }

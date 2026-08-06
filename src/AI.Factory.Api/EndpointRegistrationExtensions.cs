@@ -83,6 +83,8 @@ public static class EndpointRegistrationExtensions
         endpoints.MapProcurementEndpoints();
         endpoints.MapReportEndpoints();
         endpoints.MapCopilotEndpoints();
+        endpoints.MapMachineEndpoints();
+        endpoints.MapAuditLogEndpoints();
 
         return endpoints;
     }

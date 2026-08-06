@@ -1,0 +1,96 @@
+@page "/audit-administration"
+@attribute [Authorize]
+@inject IAuditLogService AuditLogs
+@inject IAdminUserService AdminUsers
+
+<PageTitle>Audit and Administration</PageTitle>
+<h1>Audit and Administration</h1>
+@if (!string.IsNullOrWhiteSpace(Message)) { <div class="alert alert-info">@Message</div> }
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><button class="nav-link @(Tab == "audit" ? "active" : null)" @onclick='() => Tab = "audit"'>Audit Log</button></li>
+    <li class="nav-item"><button class="nav-link @(Tab == "users" ? "active" : null)" @onclick='() => Tab = "users"'>Demo User Management</button></li>
+</ul>
+
+@if (Tab == "audit")
+{
+    <AuthorizeView Policy="@PolicyNames.CanViewAuditLog">
+        <Authorized Context="viewAuthorization">
+            <h2 class="h4">Audit Log Report</h2>
+            <div class="row g-3 mb-2">
+                <div class="col-auto"><div class="card p-2"><div class="text-muted small">Matching Entries</div><div class="fs-5">@AuditPage.TotalCount</div></div></div>
+            </div>
+            <div class="row g-2 mb-2">
+                <div class="col-md-3"><label class="form-label">Search (user or entity)</label><input class="form-control" @bind="SearchInput" /></div>
+                <div class="col-md-3"><label class="form-label">Action</label><input class="form-control" @bind="ActionInput" placeholder="e.g. Login Success" /></div>
+                <div class="col-md-auto align-self-end"><button class="btn btn-outline-primary" @onclick="() => ReloadAuditAsync(1)">Filter</button></div>
+                <div class="col-md-auto align-self-end"><a class="btn btn-outline-secondary" href="/api/reports/audit-log/export.csv" target="_blank">Export CSV</a></div>
+            </div>
+            @if (AuditPage.Items.Count == 0)
+            {
+                <div class="alert alert-light">No audit log entry matches this filter.</div>
+            }
+            else
+            {
+                <table class="table table-striped table-sm">
+                    <thead><tr><th>Username</th><th>Action</th><th>Entity</th><th>Result</th><th>Created</th></tr></thead>
+                    <tbody>@foreach (var log in AuditPage.Items) { <tr><td>@log.Username</td><td>@log.Action</td><td>@log.EntityName@(log.EntityId is not null ? $" #{log.EntityId}" : "")</td><td>@log.Result</td><td>@log.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)</td></tr> }</tbody>
+                </table>
+                <div class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-sm btn-outline-secondary" disabled="@(AuditPage.Page <= 1)" @onclick="() => ReloadAuditAsync(AuditPage.Page - 1)">Previous</button>
+                    <span>Page @AuditPage.Page</span>
+                    <button class="btn btn-sm btn-outline-secondary" disabled="@(AuditPage.Page * AuditPage.PageSize >= AuditPage.TotalCount)" @onclick="() => ReloadAuditAsync(AuditPage.Page + 1)">Next</button>
+                </div>
+            }
+        </Authorized>
+        <NotAuthorized><div class="alert alert-warning">You do not have permission to view the audit log.</div></NotAuthorized>
+    </AuthorizeView>
+}
+else
+{
+    <AuthorizeView Policy="@PolicyNames.CanManageUsers">
+        <Authorized Context="manageAuthorization">
+            <h2 class="h4">Demo User Management</h2>
+            <table class="table table-striped">
+                <thead><tr><th>Username</th><th>Roles</th><th>Status</th><th></th></tr></thead>
+                <tbody>@foreach (var user in DemoUsers) {
+                    <tr>
+                        <td>@user.Username</td>
+                        <td>@string.Join(", ", user.Roles)</td>
+                        <td><span class="badge @(user.IsActive ? "text-bg-success" : "text-bg-secondary")">@(user.IsActive ? "Active" : "Inactive")</span></td>
+                        <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => ToggleActiveAsync(user)">@(user.IsActive ? "Deactivate" : "Activate")</button></td>
+                    </tr>
+                }</tbody>
+            </table>
+        </Authorized>
+        <NotAuthorized><div class="alert alert-warning">You do not have permission to manage demo users.</div></NotAuthorized>
+    </AuthorizeView>
+}
+
+@code {
+    private string Tab = "audit";
+    private AuditLogPage AuditPage = new([], 1, 20, 0);
+    private string SearchInput = "";
+    private string ActionInput = "";
+    private IReadOnlyCollection<DemoUser> DemoUsers = [];
+    private string? Message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAuditAsync(1);
+        DemoUsers = await AdminUsers.ListAsync();
+    }
+
+    private async Task ReloadAuditAsync(int page) =>
+        AuditPage = await AuditLogs.ListAsync(new AuditLogQuery(
+            string.IsNullOrWhiteSpace(SearchInput) ? null : SearchInput,
+            string.IsNullOrWhiteSpace(ActionInput) ? null : ActionInput,
+            Page: page));
+
+    private async Task ToggleActiveAsync(DemoUser user)
+    {
+        await AdminUsers.SetActiveAsync(user.Id, !user.IsActive);
+        DemoUsers = await AdminUsers.ListAsync();
+        Message = $"{user.Username} is now {(user.IsActive ? "inactive" : "active")}.";
+    }
+}

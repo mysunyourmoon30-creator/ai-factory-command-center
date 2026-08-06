@@ -13,4 +13,5 @@ public interface IReportExportService
     Task<byte[]> ExportProductionRiskCsvAsync(CancellationToken cancellationToken = default);
     Task<byte[]> ExportMaterialShortageCsvAsync(CancellationToken cancellationToken = default);
     Task<byte[]> ExportPurchaseOrderStatusCsvAsync(CancellationToken cancellationToken = default);
+    Task<byte[]> ExportAuditLogCsvAsync(CancellationToken cancellationToken = default);
 }

@@ -13,6 +13,12 @@ using AI.Factory.Core.Reporting;
 using AI.Factory.Infrastructure.Reporting;
 using AI.Factory.Core.Copilot;
 using AI.Factory.Infrastructure.Copilot;
+using AI.Factory.Core.Alerts;
+using AI.Factory.Infrastructure.Alerts;
+using AI.Factory.Core.Machines;
+using AI.Factory.Infrastructure.Machines;
+using AI.Factory.Core.Audit;
+using AI.Factory.Infrastructure.Audit;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -59,6 +65,11 @@ public static class DependencyInjection
         services.AddSingleton(CreateOllamaHttpClient(configuration));
         services.AddScoped<IOllamaClient, OllamaClient>();
         services.AddScoped<IReadinessService, ReadinessService>();
+
+        services.AddScoped<IAlertEvaluationService, AlertEvaluationService>();
+        services.AddScoped<IMachineService, MachineService>();
+        services.AddSingleton<IMachineUpdateNotifier, NoOpMachineUpdateNotifier>();
+        services.AddScoped<IAuditLogService, AuditLogService>();
 
         services.AddSingleton(CreateTimeProvider(configuration, environmentName));
         return services;

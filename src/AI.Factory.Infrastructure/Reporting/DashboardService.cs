@@ -1,3 +1,4 @@
+using AI.Factory.Core.Alerts;
 using AI.Factory.Core.Domain;
 using AI.Factory.Core.Orders;
 using AI.Factory.Core.Production;
@@ -16,6 +17,7 @@ public sealed class DashboardService(
     AppDbContext dbContext,
     IOrderRiskCalculator riskCalculator,
     IMaterialRequirementQueryService requirementQuery,
+    IAlertEvaluationService alertEvaluation,
     TimeProvider timeProvider) : IDashboardService
 {
     public async Task<DashboardKpiDto> GetKpiAsync(CancellationToken cancellationToken = default)
@@ -69,12 +71,20 @@ public sealed class DashboardService(
         return new CriticalRisksDto(delayedOrders, criticalMachines);
     }
 
-    public async Task<IReadOnlyCollection<ActiveAlertDto>> ListActiveAlertsAsync(CancellationToken cancellationToken = default) =>
-        await dbContext.Alerts.AsNoTracking()
+    /// <summary>
+    /// Evaluates alerts before reading, so a screen refresh is the read-side trigger the locked
+    /// dedup rule assumes ("refreshing the screen must not create a duplicate active alert").
+    /// </summary>
+    public async Task<IReadOnlyCollection<ActiveAlertDto>> ListActiveAlertsAsync(CancellationToken cancellationToken = default)
+    {
+        await alertEvaluation.EvaluateAsync(cancellationToken);
+
+        return await dbContext.Alerts.AsNoTracking()
             .Where(x => x.IsActive)
             .OrderByDescending(x => x.CreatedAt)
             .Select(x => new ActiveAlertDto(x.Id, x.AlertType, x.Severity, x.EntityName, x.EntityId, x.Message, x.CreatedAt))
             .ToArrayAsync(cancellationToken);
+    }
 
     private async Task<(int AtRisk, int Critical)> ComputeOrderRiskCountsAsync(CancellationToken cancellationToken)
     {

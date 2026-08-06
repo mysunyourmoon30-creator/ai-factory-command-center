@@ -43,3 +43,16 @@ public sealed class MaterialShortageReportRow
     public DateTime RequiredDate { get; set; }
     public ProductionPlanStatus PlanStatus { get; set; }
 }
+
+public sealed class AuditLogReportRow
+{
+    public long Id { get; set; }
+    public long? UserId { get; set; }
+    public required string Username { get; set; }
+    public required string Action { get; set; }
+    public required string EntityName { get; set; }
+    public long? EntityId { get; set; }
+    public required string Result { get; set; }
+    public required string RequestId { get; set; }
+    public DateTime CreatedAt { get; set; }
+}

@@ -5,7 +5,9 @@ using AI.Factory.Infrastructure.Persistence;
 using AI.Factory.Infrastructure.MasterData;
 using AI.Factory.Infrastructure.Orders;
 using AI.Factory.Infrastructure.Production;
+using AI.Factory.Core.Machines;
 using AI.Factory.Web.Components;
+using AI.Factory.Web.Realtime;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Diagnostics;
@@ -91,6 +93,8 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 builder.Services.AddAiFactoryAuthorization();
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IMachineUpdateNotifier, SignalRMachineUpdateNotifier>();
 
 var app = builder.Build();
 
@@ -156,9 +160,11 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapAiFactoryEndpoints();
+app.MapHub<MachineHub>("/hubs/machines");
 
 app.Run();
 
-static bool IsMachineReadablePath(PathString path) => path.StartsWithSegments("/api") || path.StartsWithSegments("/health");
+static bool IsMachineReadablePath(PathString path) =>
+    path.StartsWithSegments("/api") || path.StartsWithSegments("/health") || path.StartsWithSegments("/hubs");
 
 public partial class Program;

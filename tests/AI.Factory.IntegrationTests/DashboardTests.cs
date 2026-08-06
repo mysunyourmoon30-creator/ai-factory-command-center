@@ -66,13 +66,22 @@ public sealed class DashboardTests : IClassFixture<AiFactoryWebApplicationFactor
         Assert.Contains(risks.CriticalMachines, x => x.MachineCode == "Machine-02");
     }
 
+    /// <summary>
+    /// Day 11 wires alert evaluation into this read, so it's no longer empty against the
+    /// canonical seed - superseding the Day 9 placeholder that asserted emptiness only because
+    /// nothing evaluated alerts yet.
+    /// </summary>
     [Fact]
-    public async Task Active_alerts_are_empty_until_day_eleven_writes_them()
+    public async Task Active_alerts_reflect_the_canonical_seeds_known_conditions()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var dashboard = scope.ServiceProvider.GetRequiredService<IDashboardService>();
 
-        Assert.Empty(await dashboard.ListActiveAlertsAsync());
+        var alerts = await dashboard.ListActiveAlertsAsync();
+
+        Assert.Contains(alerts, x => x.AlertType == AlertType.MaterialShortage && x.EntityName == "RawMaterial");
+        Assert.Contains(alerts, x => x.AlertType == AlertType.LateProduction && x.EntityName == "CustomerOrder");
+        Assert.Contains(alerts, x => x.AlertType == AlertType.MachineTemperature && x.EntityName == "Machine" && x.Severity == AlertSeverity.Critical);
     }
 
     [Theory]

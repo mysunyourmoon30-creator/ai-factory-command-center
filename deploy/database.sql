@@ -787,3 +787,35 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260806001639_AddAuditLogReportView'
+)
+BEGIN
+    CREATE VIEW vw_AuditLogReport AS
+    SELECT
+        a.Id,
+        a.UserId,
+        a.Username,
+        a.Action,
+        a.EntityName,
+        a.EntityId,
+        a.Result,
+        a.RequestId,
+        a.CreatedAt
+    FROM AuditLogs a
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260806001639_AddAuditLogReportView'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260806001639_AddAuditLogReportView', N'10.0.10');
+END;
+
+COMMIT;
+GO
+
