@@ -67,6 +67,32 @@ public sealed class MasterDataTests : IClassFixture<AiFactoryWebApplicationFacto
         Assert.True(response.StatusCode == HttpStatusCode.Forbidden, $"Expected 403 but received {(int)response.StatusCode}: {body}");
     }
 
+    /// <summary>Locked Test 3: viewer.demo calls Update Raw Material -> HTTP 403, no data change, Unauthorized audit.</summary>
+    [Fact]
+    public async Task Viewer_cannot_update_raw_material_and_no_data_changes()
+    {
+        using var client = CreateClient();
+        await LoginAsync(client, "viewer.demo");
+        var before = (await client.GetFromJsonAsync<RawMaterialDto[]>("/api/raw-materials"))!.First();
+
+        var token = await GetTokenAsync(client);
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/raw-materials/{before.Id}")
+        {
+            Content = JsonContent.Create(new RawMaterialCommand(before.Code, "Hacked By Viewer", before.Unit, before.CurrentStock + 999, before.ReservedStock, before.LeadTimeDays, before.IsActive, before.RowVersion))
+        };
+        request.Headers.Add("X-XSRF-TOKEN", token);
+        using var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+
+        var after = (await client.GetFromJsonAsync<RawMaterialDto[]>("/api/raw-materials"))!.Single(x => x.Id == before.Id);
+        Assert.Equal(before.Name, after.Name);
+        Assert.Equal(before.CurrentStock, after.CurrentStock);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.True(await db.AuditLogs.AnyAsync(x => x.Action == "Unauthorized Access" && x.Username == "viewer.demo"));
+    }
+
     [Fact]
     public async Task Planner_can_create_raw_material_through_secured_api()
     {

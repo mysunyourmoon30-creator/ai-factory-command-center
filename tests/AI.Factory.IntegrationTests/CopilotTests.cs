@@ -75,8 +75,9 @@ public sealed class CopilotTests : IClassFixture<AiFactoryWebApplicationFactory>
         Assert.True(badEnum.IsFallback);
     }
 
+    /// <summary>Locked Test 15: when Ollama is down, fallback shows and Dashboard, Reports, and core API all keep working.</summary>
     [Fact]
-    public async Task Ollama_exception_falls_back_and_the_dashboard_keeps_working()
+    public async Task Ollama_exception_falls_back_and_dashboard_reports_and_core_api_keep_working()
     {
         using var client = CreateClient();
         await LoginAsync(client, "planner.demo");
@@ -88,6 +89,12 @@ public sealed class CopilotTests : IClassFixture<AiFactoryWebApplicationFactory>
 
         using var dashboard = await client.GetAsync("/api/dashboard/kpi");
         Assert.Equal(HttpStatusCode.OK, dashboard.StatusCode);
+
+        using var report = await client.GetAsync("/api/reports/production-risk");
+        Assert.Equal(HttpStatusCode.OK, report.StatusCode);
+
+        using var coreApi = await client.GetAsync("/api/customer-orders");
+        Assert.Equal(HttpStatusCode.OK, coreApi.StatusCode);
     }
 
     [Fact]
