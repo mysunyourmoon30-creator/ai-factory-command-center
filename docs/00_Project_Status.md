@@ -1,6 +1,6 @@
 # Project Status
 
-Updated: 2026-08-06 (Asia/Bangkok)
+Updated: 2026-08-07 (Asia/Bangkok)
 
 ## Summary
 
@@ -19,7 +19,8 @@ Updated: 2026-08-06 (Asia/Bangkok)
 | Day 11 Machine Simulator, SignalR, Alert Deduplication, Audit Page | Done | Locked Machine Alert Rule boundaries verified by unit test; live SignalR broadcast and automatic reconnect verified against the running app; `vw_AuditLogReport` CSV content verified live on LocalDB; 197/197 automated checks passed | Fixed a test-order-dependency bug in this day's own new tests (see acceptance evidence) | All 11 locked modules/screens are now built — begin Day 12+ release-hardening scope (§Day 13–14 Release Verification, full 15-business-test coverage confirmation) per `00_Master_Scope_Final_Locked_V4.md` |
 | Day 12 15 Required Tests Traceability | Done | All 15 locked Required Tests (Test 1-15, Test 11 Case A+B) traced to a covering automated test or fresh live evidence; closed 2 real gaps (Test 3 Update-not-Create, Test 15 Reports/core-API-while-Ollama-down); re-verified Test 11's two concurrency races live on LocalDB; 198/198 automated checks passed | None | Begin Day 13 Release Verification Checklist per `00_Master_Scope_Final_Locked_V4.md` §Day 13-14 |
 | Day 13 Release Verification Checklist, Setup Scripts | Done | All 13 checklist items verified (7 already covered by Days 1-12, 4 satisfied by existing code and now evidenced, 2 newly live-verified); `deploy/setup.ps1` and `deploy/seed-data.sql` verified end-to-end against fresh throwaway LocalDB databases, including a real login using the copied Identity password hash; found and fixed a real deployment-script bug (see acceptance evidence); 198/198 automated checks passed | IIS Local and IIS-restart-recovery are an environment finding, not verified — no IIS, no ASP.NET Core Hosting Bundle, and no Administrator rights on this machine (user-confirmed: defer, same treatment as Day 10's Ollama finding) | Begin Day 14 portfolio deliverables (README, diagrams, demo video, CV, job applications) per `00_Master_Scope_Final_Locked_V4.md` §23.1 — explicitly the user's own responsibility, not a coding task |
-| Day 14 (partial: README, Installation Guide, diagrams) | Doing | Root `README.md` rewritten (architecture + ER Mermaid diagrams, all 11 modules, setup instructions); `deploy/installation-guide.md` added (the locked deploy/ file layout's missing 5th file); found and fixed a real data-integrity leftover in the canonical demo DB (see below); 198/198 automated checks unaffected | Remaining Day 14 items (Demo Video, updated CV, 30 job applications) are explicitly the user's own responsibility per §23.1, not attempted here. A separate confirmed gap was found and spun off as its own task rather than fixed inline: the canonical seed is missing the locked spec's required "1 existing Purchase Request" and "1 existing Incoming PO" (both currently 0) | User's own responsibility for the remaining portfolio items per §23.1; separately, pick up the spun-off Purchase Request/Incoming PO seeding task when ready |
+| Day 14 (partial: README, Installation Guide, diagrams) | Doing | Root `README.md` rewritten (architecture + ER Mermaid diagrams, all 11 modules, setup instructions); `deploy/installation-guide.md` added (the locked deploy/ file layout's missing 5th file); found and fixed a real data-integrity leftover in the canonical demo DB (see below); 198/198 automated checks unaffected | Remaining Day 14 items (Demo Video, updated CV, 30 job applications) are explicitly the user's own responsibility per §23.1, not attempted here | User's own responsibility for the remaining portfolio items per §23.1 |
+| Seed 1 canonical Purchase Request + 1 Incoming PO | Done | `CanonicalProcurementSeeder` adds PR-BASE-001 (Approved) and PO-BASE-001 (Open) to the canonical seed, closing the Day 14 gap against the locked spec's "Seed Data ต้องมี" list; live-verified on the real canonical LocalDB that RM-001's locked 1,250 kg shortage, 0 EligibleIncoming, and 0 LatePurchaseOrderCount are all unaffected; `deploy/seed-data.sql` regenerated and re-verified end-to-end; 199/199 automated checks passed | None | None — this closes the gap; not a locked "Day 15" (the roadmap only defines Days 1-14) |
 
 ## Day 1 acceptance evidence
 
@@ -60,15 +61,16 @@ Updated: 2026-08-06 (Asia/Bangkok)
 - Day 12 added no feature, table, endpoint, or migration — it closed 2 real test-coverage gaps (2 test methods touched: one added, one extended) and re-verified 2 concurrency scenarios live against LocalDB, per the locked doc's own "ห้ามเพิ่ม Required Test เกิน 15 ก่อน 15 Tests นี้ผ่าน" (don't add more than the 15 Required Tests before these 15 pass) — this day made the existing 15 pass, it did not add a 16th.
 - Day 13 added no feature, table, or endpoint — 3 new `deploy/` scripts (`setup.ps1`, `seed-data.sql`, `publish-iis.ps1`, all named in the locked file layout) and one small edit to 2 already-shipped migrations' `Up()` method bodies (see acceptance evidence for why), consistent with the checklist's own framing: "รายการนี้เป็น Release Verification ไม่ใช่ Feature" (this list is Release Verification, not a Feature).
 - Day 14 (partial) added no feature, table, or endpoint — a README rewrite, one new `deploy/` doc file (`installation-guide.md`, the last file named in the locked `deploy/` layout that hadn't been created yet), and a data-only fix restoring Machine-01 to its canonical seed values (via the app's own API, not a direct database write). Screenshots, Demo Video, CV, and job applications were explicitly out of scope for this pass per user direction.
+- The Purchase Request/Incoming PO seed follow-up added no table, column, or endpoint — one new seeder (`CanonicalProcurementSeeder`) inserting directly via `AppDbContext`, matching every other `Canonical*Seeder`. It is a data-only addition closing a gap the locked spec itself already named ("Seed Data ต้องมี"), not a new feature; the locked roadmap only defines Days 1-14 (line 2497 "Roadmap 14 วัน"), so this isn't logged as a "Day 15."
 
 ## Handoff
 
-- Current module: N/A — Day 13-14 (partial) were deployment scripting, release verification, and documentation, not a feature module
-- Current task: Day 14 (partial) — README, Installation Guide, Architecture/Database diagrams
-- Status: Doing (user-scoped subset done; remaining Day 14 items are the user's own responsibility)
+- Current module: N/A — Day 13-14 (partial) and the PR/Incoming PO seed follow-up were deployment scripting, release verification, and documentation/data work, not a feature module
+- Current task: PR-BASE-001/PO-BASE-001 canonical seed follow-up (closed)
+- Status: Done
 - Remaining error: None known
 - Last commit: See `git log -1`
-- Next task: Two independent threads remain. (1) The user's own Day 14 portfolio work — Screenshots, Demo Video, updated CV, 30 job applications per §23.1 — not a coding task; offer to help draft *content* if asked (e.g. a demo script, README-derived talking points), but the applications/CV/video themselves are the user's. (2) A spun-off follow-up task exists to seed the locked spec's required 1 Purchase Request + 1 Incoming PO into the canonical dataset (currently 0 of each — see Day 14 acceptance evidence for why and what's needed).
+- Next task: The only remaining thread is the user's own Day 14 portfolio work — Screenshots, Demo Video, updated CV, 30 job applications per §23.1 — not a coding task; offer to help draft *content* if asked (e.g. a demo script, README-derived talking points), but the applications/CV/video themselves are the user's. Everything else the locked spec names through Day 14 is now done: all 15 Required Tests, all 13 Release Verification items except IIS Local (environment finding, needs an elevated session on a machine with IIS), and the full locked canonical seed dataset (users/machines/materials/formulations/orders/plans/1 PR/1 Incoming PO).
 - Outstanding, not yet verified: **IIS Local runs** and **IIS restart recovery** (2 of the Day 13 checklist's items) — this machine has no IIS, no ASP.NET Core Hosting Bundle, and no Administrator rights, so `publish-iis.ps1` was written to Microsoft's documented process but never executed. Whoever has access to an elevated session on a machine with IIS available should run it and confirm both items before Gate 4 is called fully done.
 - Outstanding: canonical seed is missing 1 Purchase Request + 1 Incoming PO per the locked spec's own seed-data requirement (see the spun-off follow-up task above).
 - Do not change: locked topology, table count (view entities via `.ToView` never count toward it), `SourceProductionPlanId` uniqueness rule, TimeProvider policy, the unclamped On-hand Available used in calculations, the Serializable isolation used for Purchase Request creation, the receipt endpoint's cumulative-quantity contract, the report views' no-time-relative-math rule, any `.ToString("yyyy-MM-dd", ...)` call's explicit `CultureInfo.InvariantCulture`, the 4-tool AI allow-list (never add a 5th or a write tool), the localhost-only Ollama guard, the `/health`-and-`/api` exclusion from the Blazor redirect/status-code-page middleware, the Machine Alert Rule boundaries (`<85`/`85-94.99`/`≥95` Running, always Warning when Stopped), the alert dedup unique filtered index, `IMachineUpdateNotifier`'s no-op-default/Web-override registration order, the audit log CSV export's narrower `CanViewAuditLog` gate (not the generic `CanExportReports`), the 15-Required-Tests cap (do not add a 16th required test), the `EXEC(N'CREATE VIEW ...')` wrapping in the two report-view migrations (needed so `deploy/database.sql` runs via `sqlcmd`, not just via `dotnet ef database update` — see Day 13 acceptance evidence), or `setup.ps1`'s dual `AI_FACTORY_CONNECTION_STRING`/`ConnectionStrings__AiFactory` environment variables (both are required — one for each of the script's two steps, see the script's own comment)
@@ -310,3 +312,50 @@ CV, 30 job applications). This pass covers only the former, by explicit user cho
   was spun off as its own follow-up task rather than done inline during a documentation pass.
 - Latest verification: 198 passed (89 unit + 109 integration), 0 failed; build 0 warnings/errors;
   `dotnet format --verify-no-changes` passed; no schema or endpoint change this pass.
+
+## Seed follow-up acceptance evidence — 1 Purchase Request + 1 Incoming PO
+
+Closes the gap flagged during Day 14: the locked spec's "Seed Data ต้องมี" list (line 2482-2493)
+requires the canonical dataset to include "Existing Purchase Request 1" and "Existing Incoming
+PO 1" — both were 0. This is data-only (one new seeder, no table/column/endpoint), so it isn't
+logged as a "Day 15" — the locked roadmap only defines Days 1-14.
+
+- **Real investigation before writing code, not a guess**: naively seeding a PR + Incoming PO for
+  RM-001 (the only material with an active shortage in the canonical seed — every other raw
+  material's on-hand supply comfortably covers its active demand) risked breaking several
+  already-locked, already-tested figures. An `ExpectedDate` before "today" flags the PO as late
+  (`PurchaseRequestRules.IsLate`), which would have flipped `DashboardTests
+  .Kpi_counts_match_the_canonical_seed`'s locked `LatePurchaseOrderCount == 0` assertion to 1. An
+  `ExpectedDate` before PP-DEMO-001's Required Date (T+5) would have counted as eligible incoming
+  supply (`MaterialRequirementContracts.CalculateCumulativeIncoming`), reducing/zeroing the locked
+  1,250 kg shortage figure that half of Days 6-9's acceptance evidence depends on.
+- **Resolution**: `PO-BASE-001`'s `ExpectedDate` is set to T+10 — after PP-DEMO-001's Required
+  Date, so it's excluded from Cumulative Incoming at that evaluation point, *and* after "today,"
+  so it's never late. Both locked figures hold simultaneously. `PR-BASE-001` is seeded `Approved`
+  (not Draft/PendingApproval), so `PurchaseRequestRules.ActiveStatuses` never treats it as
+  blocking a new PR for the same plan+material — matching the locked spec's own worked example
+  ("PR-BASE-001 ที่ Approved แล้วไม่ขวางการสร้าง PR-DEMO-001").
+- `src/AI.Factory.Infrastructure/Production/CanonicalProcurementSeeder.cs` (new) follows
+  `CanonicalProductionPlanSeeder`'s exact pattern: resolves `T` from `SO-DEMO-001.CreatedAt`,
+  checks idempotency via `RequestNumber == "PR-BASE-001"`, inserts directly via `AppDbContext`
+  (no `ClaimsPrincipal`/service-layer call — seeders run at startup with no logged-in user, same
+  as every other canonical seeder). Wired into `Program.cs`'s existing `--seed-production-plans`
+  flag tier and into `AiFactoryWebApplicationFactory`'s test-host seeding, alongside
+  `CanonicalProductionPlanSeeder`.
+- **Live-verified on the real canonical LocalDB** (not just the InMemory test host): after
+  running the seed flag, `GET /api/material-shortages/1` returned `shortageQuantity: 1250`,
+  `eligibleIncoming: 0`, `latePurchaseOrders: []` — unchanged from before the seeder existed.
+  `GET /api/dashboard/kpi` returned `materialShortageCount: 1`, `latePurchaseOrderCount: 0` —
+  also unchanged. Active alerts stayed at exactly 4 (the new Open PO doesn't trigger any alert
+  type). `PurchaseRequests`/`IncomingPurchaseOrders` each confirmed to have exactly 1 row via
+  `sqlcmd`.
+- `deploy/seed-data.sql` regenerated (same generator script as Day 13, against a fresh throwaway
+  database) and re-verified end-to-end via the fallback path (`database.sql` then `seed-data.sql`
+  via `sqlcmd -I` against a second fresh throwaway database) — `PurchaseRequests`/
+  `IncomingPurchaseOrders` each land with exactly 1 correctly-linked row.
+- New test `ProcurementTests.Canonical_seed_includes_one_approved_purchase_request_and_one_open
+  _incoming_po` asserts PR-BASE-001/PO-BASE-001's exact shape and, as a direct regression guard,
+  that RM-001's `ShortageQuantity` is still 1,250 and `EligibleIncoming` is still 0 with the new
+  row present — the concrete proof the date-based resolution holds, not just an assumption.
+- Latest verification: 199 passed (89 unit + 110 integration), 0 failed; build 0 warnings/errors;
+  `dotnet format --verify-no-changes` passed; 14 application tables unchanged (no migration).

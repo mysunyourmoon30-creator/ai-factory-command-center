@@ -119,6 +119,7 @@ if (seedIdentity || seedMasterData || seedCustomerOrders || seedProductionPlans)
     if (seedProductionPlans)
     {
         await CanonicalProductionPlanSeeder.SeedAsync(scope.ServiceProvider);
+        await CanonicalProcurementSeeder.SeedAsync(scope.ServiceProvider);
     }
     return;
 }

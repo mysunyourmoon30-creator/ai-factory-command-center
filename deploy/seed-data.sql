@@ -1,23 +1,23 @@
 -- Fallback SQL data script (locked deploy/ layout: run after database.sql).
--- Generated from a freshly-seeded canonical database via the Day 13 verification harness -
+-- Generated from a freshly-seeded canonical database via a one-off verification harness -
 -- NOT hand-written, so Identity password hashes match Demo@12345 exactly. Regenerate if the
 -- canonical seed data changes; do not hand-edit.
 SET NOCOUNT ON;
 
 SET IDENTITY_INSERT [AspNetRoles] ON;
 INSERT INTO [AspNetRoles] ([Id], [Name], [NormalizedName], [ConcurrencyStamp]) VALUES
-(1, N'Admin', N'ADMIN', N'b17e4358-65d9-4b48-acba-af367f15bc81'),
-(2, N'Manager', N'MANAGER', N'd3d90420-6941-43c9-8ddf-d2b7a7021f73'),
-(3, N'Planner', N'PLANNER', N'2be71b3a-a8c5-4666-9aab-a38c5f7f207b'),
-(4, N'Viewer', N'VIEWER', N'675cf494-e72b-417a-bea0-dc9725e89f8c');
+(1, N'Admin', N'ADMIN', N'c83dc6a7-0cde-493f-ab48-815cee55a9bc'),
+(2, N'Manager', N'MANAGER', N'e99aa1a8-3272-4899-a0fc-fa9845554124'),
+(3, N'Planner', N'PLANNER', N'e87f986c-4cba-410d-9e39-3440aa02d710'),
+(4, N'Viewer', N'VIEWER', N'1b7334d1-f1a7-4e36-97b5-b5d6974787a3');
 SET IDENTITY_INSERT [AspNetRoles] OFF;
 
 SET IDENTITY_INSERT [AspNetUsers] ON;
 INSERT INTO [AspNetUsers] ([Id], [IsActive], [UserName], [NormalizedUserName], [Email], [NormalizedEmail], [EmailConfirmed], [PasswordHash], [SecurityStamp], [ConcurrencyStamp], [PhoneNumber], [PhoneNumberConfirmed], [TwoFactorEnabled], [LockoutEnd], [LockoutEnabled], [AccessFailedCount]) VALUES
-(1, 1, N'admin.demo', N'ADMIN.DEMO', NULL, NULL, 0, N'AQAAAAIAAYagAAAAEE6XC1x+mlXEnLBj0G9MUroYfboLUDyySbcBAfQ0qXeM1rLQGU9QpTmHzEEyJUFK0g==', N'XHHTQNZQVLKNYD2FS6WLUGJFT74F2HMP', N'bbb432ec-2cc7-46e4-a5cb-5e318b18c586', NULL, 0, 0, NULL, 1, 0),
-(2, 1, N'manager.demo', N'MANAGER.DEMO', NULL, NULL, 0, N'AQAAAAIAAYagAAAAEKQvvZ65kHRO4RLEc4SucQwAOlbb+TdG7RofiBwV/+GU4oub9itwzddx32uH1UogtQ==', N'C6BCDX4TEMZVADRID7CLBSHQ6KG7QNED', N'7371528d-5120-4b8a-a4dd-b0e3822938ef', NULL, 0, 0, NULL, 1, 0),
-(3, 1, N'planner.demo', N'PLANNER.DEMO', NULL, NULL, 0, N'AQAAAAIAAYagAAAAEBZsDlBxplKg/7fwfzTLstxQksMI6hkjR9nx9kiOkwqzM99O0vQWSzKHqX/c115d3w==', N'UYSJCCKVN6NRIH33OHOCTGSI2V4VPMGY', N'fa4eafec-916d-40fc-80df-17241dde940f', NULL, 0, 0, NULL, 1, 0),
-(4, 1, N'viewer.demo', N'VIEWER.DEMO', NULL, NULL, 0, N'AQAAAAIAAYagAAAAEFUbGBZnoDFfE9zlVcMiAZ2/4TaFrL6sOoJkm6RBaMP7GjPmbeGcV6VqNkRB/mkbWQ==', N'5BJRUDE5LZAWLNABO2TJUQQ6NDXDASN5', N'aa1074c8-343d-4c2d-9e2c-586a4633a39b', NULL, 0, 0, NULL, 1, 0);
+(1, 1, N'admin.demo', N'ADMIN.DEMO', NULL, NULL, 0, N'AQAAAAIAAYagAAAAECYKTeH9bDRsC3pMMSR4+KBjqt/6UjfGjqqy9Pl+jQufd6cUNA49UPjr68k3h82Axw==', N'EXRZWVBDODYH24IQ3FULE4QFAUMV45LF', N'be91c0c9-aff1-4532-a8cc-735482b8fc70', NULL, 0, 0, NULL, 1, 0),
+(2, 1, N'manager.demo', N'MANAGER.DEMO', NULL, NULL, 0, N'AQAAAAIAAYagAAAAEF1lNoaDWyJdN/Xjqb5p9xoITTNhofps9UPPkRb8yQMnq2Hin0MRCbzAsgSY1JP8NA==', N'M4PUM62EUBLOT7UANB33DCJ5ADJ7UFV7', N'd1e90304-3a08-4544-b883-e3e7b222a450', NULL, 0, 0, NULL, 1, 0),
+(3, 1, N'planner.demo', N'PLANNER.DEMO', NULL, NULL, 0, N'AQAAAAIAAYagAAAAECzQLcN2TnfESZANIyKc+vtMEOZIMn9JEfTp/N071bjefq170NwcU2331Fcp+qg5Ig==', N'2AF22EPFMI5HDK4BZUJ55PV26M67RAK4', N'221f0285-697a-4f04-a9a5-dc6ae84bccb0', NULL, 0, 0, NULL, 1, 0),
+(4, 1, N'viewer.demo', N'VIEWER.DEMO', NULL, NULL, 0, N'AQAAAAIAAYagAAAAENMo+NFDNgqVbJyCqTM0F/6MULRXIB/L/o9UFLppUNkq3xVGFQ0+4h9AluRaQMGJTg==', N'H5BVR5QXHJ6A373TL3S4OBPLPJVJKMYF', N'e2b5c4c1-92db-4a83-9834-d890db9544d5', NULL, 0, 0, NULL, 1, 0);
 SET IDENTITY_INSERT [AspNetUsers] OFF;
 
 INSERT INTO [AspNetUserRoles] ([UserId], [RoleId]) VALUES
@@ -28,25 +28,25 @@ INSERT INTO [AspNetUserRoles] ([UserId], [RoleId]) VALUES
 
 SET IDENTITY_INSERT [RawMaterials] ON;
 INSERT INTO [RawMaterials] ([Id], [Code], [Name], [Unit], [CurrentStock], [ReservedStock], [LeadTimeDays], [IsActive], [CreatedAt], [UpdatedAt]) VALUES
-(1, N'RM-001', N'Polymer Base A', N'kg', 4200.000, 450.000, 7, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000'),
-(2, N'RM-002', N'Additive B', N'kg', 5000.000, 300.000, 7, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000'),
-(3, N'RM-003', N'Pigment C', N'kg', 3500.000, 100.000, 7, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000'),
-(4, N'RM-004', N'Filler D', N'kg', 10000.000, 500.000, 7, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000'),
-(5, N'RM-005', N'Binder E', N'kg', 8000.000, 400.000, 7, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000'),
-(6, N'RM-006', N'Catalyst F', N'kg', 5000.000, 200.000, 7, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000'),
-(7, N'RM-007', N'Stabilizer G', N'kg', 6000.000, 300.000, 7, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000'),
-(8, N'RM-008', N'Solvent H', N'kg', 9000.000, 500.000, 7, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000'),
-(9, N'RM-009', N'Resin I', N'kg', 7000.000, 300.000, 7, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000'),
-(10, N'RM-010', N'Modifier J', N'kg', 4000.000, 100.000, 7, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000');
+(1, N'RM-001', N'Polymer Base A', N'kg', 4200.000, 450.000, 7, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000'),
+(2, N'RM-002', N'Additive B', N'kg', 5000.000, 300.000, 7, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000'),
+(3, N'RM-003', N'Pigment C', N'kg', 3500.000, 100.000, 7, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000'),
+(4, N'RM-004', N'Filler D', N'kg', 10000.000, 500.000, 7, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000'),
+(5, N'RM-005', N'Binder E', N'kg', 8000.000, 400.000, 7, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000'),
+(6, N'RM-006', N'Catalyst F', N'kg', 5000.000, 200.000, 7, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000'),
+(7, N'RM-007', N'Stabilizer G', N'kg', 6000.000, 300.000, 7, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000'),
+(8, N'RM-008', N'Solvent H', N'kg', 9000.000, 500.000, 7, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000'),
+(9, N'RM-009', N'Resin I', N'kg', 7000.000, 300.000, 7, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000'),
+(10, N'RM-010', N'Modifier J', N'kg', 4000.000, 100.000, 7, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000');
 SET IDENTITY_INSERT [RawMaterials] OFF;
 
 SET IDENTITY_INSERT [Formulations] ON;
 INSERT INTO [Formulations] ([Id], [Code], [Name], [BatchSize], [IsActive], [CreatedAt], [UpdatedAt]) VALUES
-(1, N'FM-DEMO-001', N'Demo Formulation 001', 500.000, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000'),
-(2, N'FM-002', N'Formulation 002', 1000.000, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000'),
-(3, N'FM-003', N'Formulation 003', 750.000, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000'),
-(4, N'FM-004', N'Formulation 004', 600.000, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000'),
-(5, N'FM-005', N'Formulation 005', 400.000, 1, '2026-08-06T14:20:39.0000000', '2026-08-06T14:20:39.0000000');
+(1, N'FM-DEMO-001', N'Demo Formulation 001', 500.000, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000'),
+(2, N'FM-002', N'Formulation 002', 1000.000, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000'),
+(3, N'FM-003', N'Formulation 003', 750.000, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000'),
+(4, N'FM-004', N'Formulation 004', 600.000, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000'),
+(5, N'FM-005', N'Formulation 005', 400.000, 1, '2026-08-06T23:50:00.0000000', '2026-08-06T23:50:00.0000000');
 SET IDENTITY_INSERT [Formulations] OFF;
 
 SET IDENTITY_INSERT [Machines] ON;
@@ -131,13 +131,25 @@ INSERT INTO [MaterialRequirements] ([Id], [ProductionPlanId], [RawMaterialId], [
 (25, 8, 10, 200.000, '2026-08-06T00:00:00.0000000');
 SET IDENTITY_INSERT [MaterialRequirements] OFF;
 
--- PurchaseRequests: no canonical rows to seed.
+SET IDENTITY_INSERT [PurchaseRequests] ON;
+INSERT INTO [PurchaseRequests] ([Id], [RequestNumber], [SourceProductionPlanId], [Status], [RequestedByUserId], [RequestedDate], [ApprovedByUserId], [ApprovedDate], [RejectionReason], [CreatedAt]) VALUES
+(1, N'PR-BASE-001', 1, N'Approved', 3, '2026-08-06T00:00:00.0000000', 2, '2026-08-06T00:00:00.0000000', NULL, '2026-08-06T00:00:00.0000000');
+SET IDENTITY_INSERT [PurchaseRequests] OFF;
 
--- PurchaseRequestItems: no canonical rows to seed.
+SET IDENTITY_INSERT [PurchaseRequestItems] ON;
+INSERT INTO [PurchaseRequestItems] ([Id], [PurchaseRequestId], [RawMaterialId], [RequestedQuantity], [ExpectedDate]) VALUES
+(1, 1, 1, 500.000, '2026-08-16T00:00:00.0000000');
+SET IDENTITY_INSERT [PurchaseRequestItems] OFF;
 
--- IncomingPurchaseOrders: no canonical rows to seed.
+SET IDENTITY_INSERT [IncomingPurchaseOrders] ON;
+INSERT INTO [IncomingPurchaseOrders] ([Id], [PurchaseOrderNumber], [PurchaseRequestId], [ExpectedDate], [ReceivedDate], [Status], [CreatedAt]) VALUES
+(1, N'PO-BASE-001', 1, '2026-08-16T00:00:00.0000000', NULL, N'Open', '2026-08-06T00:00:00.0000000');
+SET IDENTITY_INSERT [IncomingPurchaseOrders] OFF;
 
--- IncomingPurchaseOrderItems: no canonical rows to seed.
+SET IDENTITY_INSERT [IncomingPurchaseOrderItems] ON;
+INSERT INTO [IncomingPurchaseOrderItems] ([Id], [IncomingPurchaseOrderId], [RawMaterialId], [OrderedQuantity], [ReceivedQuantity]) VALUES
+(1, 1, 1, 500.000, 0.000);
+SET IDENTITY_INSERT [IncomingPurchaseOrderItems] OFF;
 
 -- Alerts: no canonical rows to seed.
 

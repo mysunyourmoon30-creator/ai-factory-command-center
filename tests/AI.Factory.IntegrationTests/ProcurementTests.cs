@@ -16,6 +16,37 @@ public sealed class ProcurementTests : IClassFixture<AiFactoryWebApplicationFact
     private readonly AiFactoryWebApplicationFactory _factory;
     public ProcurementTests(AiFactoryWebApplicationFactory factory) => _factory = factory;
 
+    /// <summary>
+    /// Locked "Seed Data ต้องมี" requirement: 1 existing Purchase Request, 1 existing Incoming PO.
+    /// PR-BASE-001 is seeded Approved (not Draft/PendingApproval) so it never blocks a new PR for
+    /// the same plan+material, and PO-BASE-001's ExpectedDate is set after PP-DEMO-001's Required
+    /// Date so it's excluded from Cumulative Incoming at that date - this test is the concrete
+    /// proof that RM-001's locked 1,250 kg shortage and 0 EligibleIncoming are unaffected.
+    /// </summary>
+    [Fact]
+    public async Task Canonical_seed_includes_one_approved_purchase_request_and_one_open_incoming_po()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var request = await db.PurchaseRequests.Include(x => x.Items)
+            .SingleAsync(x => x.RequestNumber == "PR-BASE-001");
+        Assert.Equal(PurchaseRequestStatus.Approved, request.Status);
+        Assert.Equal(500, Assert.Single(request.Items).RequestedQuantity);
+
+        var order = await db.IncomingPurchaseOrders.Include(x => x.Items)
+            .SingleAsync(x => x.PurchaseOrderNumber == "PO-BASE-001");
+        Assert.Equal(IncomingPurchaseOrderStatus.Open, order.Status);
+        Assert.Equal(request.Id, order.PurchaseRequestId);
+        Assert.Equal(500, Assert.Single(order.Items).OrderedQuantity);
+        Assert.Equal(0, Assert.Single(order.Items).ReceivedQuantity);
+
+        var shortageService = scope.ServiceProvider.GetRequiredService<IMaterialShortageService>();
+        var rm001 = (await shortageService.ListAsync()).Single(x => x.RawMaterialCode == "RM-001");
+        Assert.Equal(1_250, rm001.ShortageQuantity);
+        Assert.Equal(0, rm001.EligibleIncoming);
+    }
+
     [Fact]
     public async Task Submit_moves_draft_to_pending_approval()
     {

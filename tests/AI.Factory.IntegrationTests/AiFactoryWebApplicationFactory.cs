@@ -52,6 +52,7 @@ public sealed class AiFactoryWebApplicationFactory : WebApplicationFactory<Progr
         CanonicalMasterDataSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
         CanonicalCustomerOrderSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
         CanonicalProductionPlanSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
+        CanonicalProcurementSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
         return host;
     }
 }
