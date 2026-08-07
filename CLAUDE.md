@@ -52,6 +52,10 @@ After any migration change, regenerate the idempotent script into `deploy/databa
 
 Connection string resolution: `ConnectionStrings:AiFactory` → `AI_FACTORY_CONNECTION_STRING` env var → throw. Default dev target is `(localdb)\MSSQLLocalDB` / `AI_Factory_CommandCenter`.
 
+### Full setup
+
+`deploy/setup.ps1` is the primary bootstrap (SDK check + migrations + build) for a fresh clone. `deploy/installation-guide.md` covers the no-SDK fallback (`sqlcmd` against `deploy/database.sql`) and IIS publish/troubleshooting via `deploy/publish-iis.ps1`.
+
 ### Seeding
 
 The web host doubles as the seeder: passing a `--seed-*` flag runs migrations + seeds, then **returns without serving**. Seeds are idempotent and ordered — a later flag implies the earlier ones.
@@ -68,7 +72,7 @@ Modular monolith, one host, one origin. Dependency direction is enforced by proj
 
 - `AI.Factory.Core` — no dependencies. Entities, enums, DTOs, command records, service **interfaces**, pure calculation rules (`ProductionPlanRules`, `OrderRiskCalculator`), exception types, `FixedTimeProvider`.
 - `AI.Factory.Infrastructure` — references Core. `AppDbContext`, migrations, Identity, service implementations, canonical seeders, `AddInfrastructure` DI registration.
-- `AI.Factory.Api` — references **Core only**. Minimal-API endpoint mapping extensions + authorization policy registration. A class library with no `Program.cs`; it resolves services through Core interfaces.
+- `AI.Factory.Api` — references **Core only**. Minimal-API endpoint mapping extensions, the `MachineHub` SignalR hub (live machine-monitoring push), and authorization policy registration. A class library with no `Program.cs`; it resolves services through Core interfaces.
 - `AI.Factory.Web` — the only executable. References Api + Infrastructure and composes them in `Program.cs`. Blazor Web App, global Interactive Server.
 
 Hard rules: no `.Client` project, no WebAssembly/Auto render mode, and Blazor components must never touch `AppDbContext`.
@@ -120,4 +124,6 @@ Note the InMemory provider is non-relational, so transaction code guards on `Dat
 
 `docs/00_Master_Scope.md` records non-negotiable boundaries derived from an external checksummed spec: 14 application tables, 11 modules/screens, 4 roles, 3 machines, 4 read-only AI tools, 15 required business tests. Do not add tables, projects, or features outside it; AI (Ollama/Qwen) is read-only, grounded, and allow-listed — never a write path.
 
-`docs/00_Project_Status.md` is the live roadmap and handoff record (day-by-day gates, acceptance evidence, "next task", "do not change" list). Read it before starting work and update it when a day's work completes. Days 1–5 (foundation → authentication → master data → customer orders → production plans) are done; Days 6–14 follow the locked sequence.
+`docs/00_Project_Status.md` is the live roadmap and handoff record (day-by-day gates, acceptance evidence, "next task", "do not change" list). Read it before starting work and update it when a day's work completes. Days 1–13 are done — all 11 modules/screens, 4 roles, 3 machines, 4 AI tools, and all 15 required business tests are complete and verified. Day 14 is portfolio/deployment wrap-up (demo video, CV, applications), not further coding.
+
+Its "do not change" list is longer than the locked-scope summary above — e.g. Serializable isolation on purchase-request creation, `InvariantCulture` on every date-format call, the filtered unique index backing active alerts, `IMachineUpdateNotifier` registration order. Check it before touching computed fields, isolation levels, culture-sensitive formatting, or indexes.
