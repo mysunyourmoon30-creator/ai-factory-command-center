@@ -116,7 +116,7 @@ Identity cookie `AI.Factory.Auth` (HttpOnly, Secure, SameSite=Lax, 8h sliding). 
 ## Tests
 
 - `AI.Factory.UnitTests` — pure rules plus **invariant guards**: `FoundationContractTests` asserts exactly 14 non-Identity tables and that `PurchaseRequests.SourceProductionPlanId` has no single-column unique index. Adding a table or that index breaks the build gate by design.
-- `AI.Factory.IntegrationTests` — `AiFactoryWebApplicationFactory` boots the real host with an EF InMemory database, a fixed `TimeProvider`, ephemeral data protection, and all four seeders. Tests drive real HTTP: fetch a token from `/api/auth/antiforgery`, send it as the `X-XSRF-TOKEN` header, log in via form POST to `/api/auth/login`. Client must use `AllowAutoRedirect = false` and an `https://` base address.
+- `AI.Factory.IntegrationTests` — `AiFactoryWebApplicationFactory` boots the real host with an EF InMemory database, a fixed `TimeProvider`, ephemeral data protection, and all five seeders (`DemoIdentitySeeder` plus the four `Canonical*Seeder`s: MasterData, CustomerOrder, ProductionPlan, Procurement). Tests drive real HTTP: fetch a token from `/api/auth/antiforgery`, send it as the `X-XSRF-TOKEN` header, log in via form POST to `/api/auth/login`. Client must use `AllowAutoRedirect = false` and an `https://` base address.
 
 Note the InMemory provider is non-relational, so transaction code guards on `Database.IsRelational()`.
 
