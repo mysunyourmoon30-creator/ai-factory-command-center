@@ -45,9 +45,9 @@ Updated: 2026-08-07 (Asia/Bangkok)
 | Gate | Status |
 |---|---|
 | Gate 1 — Foundation | Done |
-| Gate 2 — Core Business Flow | Not Started |
-| Gate 3 — Risk and AI | Not Started |
-| Gate 4 — Release | Not Started |
+| Gate 2 — Core Business Flow | Done |
+| Gate 3 — Risk and AI | Done |
+| Gate 4 — Release | Done |
 
 ## Scope audit
 
