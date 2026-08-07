@@ -125,7 +125,7 @@ erDiagram
     }
     IncomingPurchaseOrders {
         bigint Id PK
-        bigint PurchaseRequestId FK UK "at most one PO per PR"
+        bigint PurchaseRequestId FK, UK "at most one PO per PR"
         nvarchar Status
         rowversion RowVersion
     }
