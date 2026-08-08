@@ -194,6 +194,16 @@ and are closed; this series covers the other eight routes plus the defects that 
 | G34 | `/audit-administration` | Deactivation was a single click, on a screen where it now ends the account's live session — and nothing stops an Admin doing it to themselves. Two steps, with the consequence named. | Medium | **Closed (C9)** |
 | G35 | `/audit-administration` | The demo-user query ran on page load even when the Audit tab was showing. A3 gated it by role; this gates it by tab as well. | Low | **Closed (C9)** |
 
+| G36 | *every table, phones* | **Mobile tables were crushed, not scrolled.** The earlier mobile pass forced `white-space: normal; word-break: break-word` on all cells to keep tables inside the viewport. An eight-column numeric table squeezed into 375px does not become readable — headers rendered as "RE QUI RE D DA TE" and quantities broke as "5,0 00. 00 0". Cells no longer wrap, so the table overflows and `.table-responsive` scrolls it, which is what that wrapper is for; the full-bleed margins mean the scroll uses the whole screen. Narrow tables still fit without scrolling. The one exception is the audit `RequestId`, which has no natural break point. | Medium | **Closed (C10)** |
+| G37 | `/procurement`, `/orders/…` | `PurchaseRequestStatus` and `IncomingPurchaseOrderStatus` were coloured by two private `StatusClass()` switches inside `Procurement.razor`, so a purchase request's Approved green and a machine's Normal green were decided in different files — while `StatusBadge`'s own comment claimed to be the single source. Both mappings moved in; `CustomerOrderDetail` also had one hand-rolled lifecycle badge while its own list page used the component. | Low | **Closed (C10)** |
+
+Left hand-rolled on purpose, and recorded so it is not "fixed" later: the Active/Inactive account
+flag (a boolean, not a lifecycle), the "Negative" availability flag on Materials and Material
+Shortage (a data condition), Running/Stopped on Machine Monitoring (see `RunningClass`, which
+explains why a stopped machine is amber), and the dashboard's delay-days figure (a number that
+happens to be rendered in a pill). `StatusBadge` covers *statuses*; widening it to absorb these
+would make it a general badge factory and cost the guarantee it exists to give.
+
 #### G22 — reordering proved, with the numbers proved unchanged
 
 The canonical dataset cannot demonstrate this on its own: its only shortage is on **RM-001**, which
@@ -320,8 +330,9 @@ exception), so no `UnauthorizedAccessException` can originate there.
 ## Handoff
 
 - Current module: N/A — Day 13-14 (partial) and the PR/Incoming PO seed follow-up were deployment scripting, release verification, and documentation/data work, not a feature module
-- Current task: Full-system audit of all ten routes (G-series). C1 (cross-cutting error handling) closed; C2-C10 in progress.
-- Status: In progress — quality pass P1-P4, the A8 follow-up, dark mode, and the `/` and `/materials` audits (D/E/F series) are all closed
+- Current task: Full-system audit of all ten routes (G-series) — **complete**. C1-C10 all shipped, one commit each, G1-G37 all closed or explicitly withdrawn.
+- Status: Done — quality pass P1-P4, the A8 follow-up, dark mode, the `/` and `/materials` audits (D/E/F series), and the full-system G-series audit are all closed
+- Role enforcement re-verified end to end after the G-series: all 10 routes load for all 4 roles (by design — a Viewer reaches every screen read-only), the *actions* are hidden per policy, and the server refuses independently. `POST /api/customer-orders` → 400 for Admin/Planner (validation) but **403** for Manager/Viewer, so authorization runs ahead of validation; `POST /api/machines/1/simulate` → 403 for everyone but Admin; `GET /api/admin/users` → Admin only; `GET /api/reports/audit-log/export.csv` → Admin + Manager only, the deliberately narrower `CanViewAuditLog` gate. Nothing relies on a hidden button.
 - Remaining error: None known
 - Last commit: See `git log -1`
 - Next task: Nothing is queued. The only remaining thread is the user's own Day 14 portfolio work (Demo Video, CV, applications per §23.1), which is not a coding task; `demo/talking-points.md` is the recording script and `demo/prep-late-po.ps1` sets up the late-PO beat. Separately and unchanged: the user's own Day 14 portfolio work (Demo Video, CV, applications per §23.1) is not a coding task; `demo/talking-points.md` already exists as a recording script. Separately and unchanged: the user's own Day 14 portfolio work — Demo Video, updated CV, 30 job applications per §23.1 — is not a coding task; offer to help draft *content* if asked (a demo script already exists at `demo/talking-points.md`), but the applications/CV/video themselves are the user's. Everything the locked spec names through Day 14 is done: all 15 Required Tests, all 13 Release Verification items except IIS Local (environment finding, needs an elevated session on a machine with IIS), and the full locked canonical seed dataset (users/machines/materials/formulations/orders/plans/1 PR/1 Incoming PO).

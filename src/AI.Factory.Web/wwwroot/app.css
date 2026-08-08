@@ -183,13 +183,24 @@ h1:focus {
         padding-right: var(--af-space-2);
     }
 
-    /* Long identifiers (SO-DEMO-001, RM-001 - Polymer Base A) otherwise force the table far
-       wider than the screen before any scrolling helps. The header selector has to match the
-       specificity of the nowrap rule above - a media query alone does not outrank it. */
+    /*
+     * Cells must NOT wrap on phones. Letting them wrap was the wrong trade: an eight-column
+     * numeric table squeezed into 375px does not become readable, it becomes a column of single
+     * characters - headers reading "RE QUI RE D DA TE" and quantities broken as "5,0 00. 00 0".
+     * Keeping every cell on one line pushes the table past the viewport, which is precisely what
+     * .table-responsive's overflow is for, and the full-bleed margins above mean that scroll uses
+     * the whole screen. Narrow tables still fit and never scroll.
+     */
     .table > thead > tr > th,
     .table > tbody > tr > td {
+        white-space: nowrap;
+    }
+
+    /* The one genuine exception: an opaque 30-character correlation id has no natural break, so
+       it is allowed to wrap rather than setting the audit table's width on its own. */
+    .table > tbody > tr > td.text-break {
         white-space: normal;
-        word-break: break-word;
+        word-break: break-all;
     }
 }
 

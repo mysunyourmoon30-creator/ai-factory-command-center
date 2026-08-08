@@ -24,7 +24,7 @@ else if (Id is null)
 else if (Order is not null)
 {
     <dl class="row">
-        <dt class="col-sm-3">Lifecycle status</dt><dd class="col-sm-9"><span class="badge text-bg-secondary">@Order.LifecycleStatus</span></dd>
+        <dt class="col-sm-3">Lifecycle status</dt><dd class="col-sm-9"><StatusBadge Neutral="@Order.LifecycleStatus.ToString()" /></dd>
         <dt class="col-sm-3">Computed risk</dt><dd class="col-sm-9"><StatusBadge Risk="Order.RiskStatus" /></dd>
         <dt class="col-sm-3">Production plan</dt><dd class="col-sm-9">@(Order.HasProductionPlan ? "Created — quantity and formulation are permanently locked" : "Not created")</dd>
     </dl>

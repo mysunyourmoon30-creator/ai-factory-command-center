@@ -29,7 +29,7 @@
                     <tr class="@(SelectedRequest?.Id == request.Id ? "table-active" : null)">
                         <td>@request.RequestNumber</td>
                         <td>@request.PlanNumber</td>
-                        <td><span class="badge @StatusClass(request.Status)">@request.Status</span></td>
+                        <td><StatusBadge PurchaseRequest="request.Status" /></td>
                         <td>@request.RequestedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
                         <td>@(request.ApprovedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
                         <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectRequestAsync(request)">Detail</button></td>
@@ -120,7 +120,7 @@ else
                         <td>@order.RequestNumber</td>
                         <td>@order.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
                         <td>@(order.ReceivedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
-                        <td><span class="badge @StatusClass(order.Status)">@order.Status</span> @if (order.IsLate) { <span class="badge text-bg-warning ms-1">Late @order.DelayDays d</span> }</td>
+                        <td><StatusBadge IncomingPurchaseOrder="order.Status" /> @if (order.IsLate) { <span class="badge text-bg-warning ms-1">Late @order.DelayDays d</span> }</td>
                         <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectOrderAsync(order)">Detail</button></td>
                     </tr>
                 }</tbody>
@@ -361,21 +361,6 @@ else
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
-
-    private static string StatusClass(PurchaseRequestStatus status) => status switch
-    {
-        PurchaseRequestStatus.Approved => "text-bg-success",
-        PurchaseRequestStatus.Rejected => "text-bg-danger",
-        PurchaseRequestStatus.PendingApproval => "text-bg-warning",
-        _ => "text-bg-secondary"
-    };
-
-    private static string StatusClass(IncomingPurchaseOrderStatus status) => status switch
-    {
-        IncomingPurchaseOrderStatus.Received => "text-bg-success",
-        IncomingPurchaseOrderStatus.Partial => "text-bg-warning",
-        _ => "text-bg-secondary"
-    };
 
     private sealed class ReceiveForm
     {

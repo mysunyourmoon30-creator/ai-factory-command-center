@@ -1,37 +1,93 @@
 @*
-    Single source of truth for how a computed RiskStatus, an AlertSeverity, or a lifecycle
-    status is coloured. The RiskStatus mapping was previously copy-pasted verbatim into six
-    pages, so a change to the colour language meant six edits and any one of them could drift.
+    Single source of truth for how a status is coloured anywhere in the app.
+
+    The RiskStatus mapping was previously copy-pasted verbatim into six pages, so a change to the
+    colour language meant six edits and any one of them could drift. The two procurement mappings
+    arrived here later for the same reason: they lived as private StatusClass() switches inside
+    Procurement.razor, which meant a purchase request's Approved green and a machine's Normal green
+    were decided in two different files.
+
+    Deliberately *not* absorbed here, because they are not statuses:
+      - the Active/Inactive account flag on Audit & Administration (a boolean, not a lifecycle)
+      - the "Negative" availability flag on Materials and Material Shortage (a data condition)
+      - Running/Stopped on Machine Monitoring (see RunningClass there, which explains why a stopped
+        machine is amber rather than red)
+      - the delay-days figure on the dashboard (a number that happens to be rendered in a pill)
 *@
 
 <span class="badge @CssClass">@Label</span>
 
 @code {
-    /// <summary>Computed risk. Mutually exclusive with the other parameters.</summary>
+    /// <summary>Computed delivery risk. Mutually exclusive with the other parameters.</summary>
     [Parameter] public RiskStatus? Risk { get; set; }
 
     /// <summary>Alert severity.</summary>
     [Parameter] public AlertSeverity? Severity { get; set; }
 
+    /// <summary>Purchase request lifecycle. Coloured, unlike the plain lifecycle statuses, because
+    /// Approved and Rejected are outcomes rather than steps on the way somewhere.</summary>
+    [Parameter] public PurchaseRequestStatus? PurchaseRequest { get; set; }
+
+    /// <summary>Incoming purchase order lifecycle, for the same reason.</summary>
+    [Parameter] public IncomingPurchaseOrderStatus? IncomingPurchaseOrder { get; set; }
+
     /// <summary>A lifecycle status (or any neutral value) rendered without risk colouring.</summary>
     [Parameter] public string? Neutral { get; set; }
 
-    private string CssClass => (Risk, Severity, Neutral) switch
+    private string CssClass
     {
-        ({ } risk, _, _) => risk switch
+        get
         {
-            RiskStatus.Critical => "text-bg-danger",
-            RiskStatus.Warning => "text-bg-warning",
-            _ => "text-bg-success"
-        },
-        (_, { } severity, _) => severity switch
-        {
-            AlertSeverity.Critical => "text-bg-danger",
-            AlertSeverity.Warning => "text-bg-warning",
-            _ => "text-bg-secondary"
-        },
-        _ => "text-bg-secondary"
-    };
+            if (Risk is { } risk)
+            {
+                return risk switch
+                {
+                    RiskStatus.Critical => "text-bg-danger",
+                    RiskStatus.Warning => "text-bg-warning",
+                    _ => "text-bg-success"
+                };
+            }
 
-    private string Label => Risk?.ToString() ?? Severity?.ToString() ?? Neutral ?? string.Empty;
+            if (Severity is { } severity)
+            {
+                return severity switch
+                {
+                    AlertSeverity.Critical => "text-bg-danger",
+                    AlertSeverity.Warning => "text-bg-warning",
+                    _ => "text-bg-secondary"
+                };
+            }
+
+            if (PurchaseRequest is { } request)
+            {
+                return request switch
+                {
+                    PurchaseRequestStatus.Approved => "text-bg-success",
+                    PurchaseRequestStatus.Rejected => "text-bg-danger",
+                    PurchaseRequestStatus.PendingApproval => "text-bg-warning",
+                    _ => "text-bg-secondary"
+                };
+            }
+
+            if (IncomingPurchaseOrder is { } order)
+            {
+                return order switch
+                {
+                    IncomingPurchaseOrderStatus.Received => "text-bg-success",
+                    IncomingPurchaseOrderStatus.Partial => "text-bg-warning",
+                    _ => "text-bg-secondary"
+                };
+            }
+
+            return "text-bg-secondary";
+        }
+    }
+
+    private string Label =>
+        Risk?.ToString()
+        ?? Severity?.ToString()
+        ?? PurchaseRequest?.ToString()
+        ?? IncomingPurchaseOrder?.ToString()
+        ?? Neutral
+        ?? string.Empty;
 }
