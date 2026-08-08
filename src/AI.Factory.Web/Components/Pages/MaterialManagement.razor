@@ -8,16 +8,19 @@
 <StatusMessage Message="@Message" Kind="@MessageKind" />
 
 <ul class="nav nav-tabs mb-3" role="tablist">
-    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "raw")" class="nav-link @(Tab == "raw" ? "active" : null)" @onclick='() => Tab = "raw"'>Raw Materials</button></li>
-    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "formulations")" class="nav-link @(Tab == "formulations" ? "active" : null)" @onclick='() => Tab = "formulations"'>Formulations</button></li>
-    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "requirements")" class="nav-link @(Tab == "requirements" ? "active" : null)" @onclick='() => Tab = "requirements"'>Material Requirements</button></li>
+    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "raw")" class="nav-link @(Tab == "raw" ? "active" : null)" @onclick='() => SwitchTabAsync("raw")'>Raw Materials</button></li>
+    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "formulations")" class="nav-link @(Tab == "formulations" ? "active" : null)" @onclick='() => SwitchTabAsync("formulations")'>Formulations</button></li>
+    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "requirements")" class="nav-link @(Tab == "requirements" ? "active" : null)" @onclick='() => SwitchTabAsync("requirements")'>Material Requirements</button></li>
 </ul>
 
 @if (Tab == "raw")
 {
     <div class="table-responsive">
         <table class="table table-striped"><thead><tr><th scope="col">Code</th><th scope="col">Name</th><th scope="col">Stock</th><th scope="col">Reserved</th><th scope="col">Available</th><th scope="col">Lead time</th></tr></thead><tbody>
-        @foreach (var item in RawMaterials) { <tr><td>@item.Code</td><td>@item.Name</td><td>@item.CurrentStock.ToString("N3", CultureInfo.InvariantCulture) @item.Unit</td><td>@item.ReservedStock.ToString("N3", CultureInfo.InvariantCulture)</td><td>@Math.Max(item.CurrentStock - item.ReservedStock, 0).ToString("N3", CultureInfo.InvariantCulture)</td><td>@item.LeadTimeDays days</td></tr> }
+        @* Available is floored at zero for display only - the locked rule keeps the unclamped
+           value in every calculation. Without the badge an over-reserved material read as a
+           harmless 0.000 here while Material Shortage flagged the same row as Negative. *@
+        @foreach (var item in RawMaterials) { <tr><td>@item.Code</td><td>@item.Name</td><td>@item.CurrentStock.ToString("N3", CultureInfo.InvariantCulture) @item.Unit</td><td>@item.ReservedStock.ToString("N3", CultureInfo.InvariantCulture)</td><td>@Math.Max(item.CurrentStock - item.ReservedStock, 0).ToString("N3", CultureInfo.InvariantCulture) @if (item.CurrentStock - item.ReservedStock < 0) { <span class="badge text-bg-danger ms-1">Negative</span> }</td><td>@item.LeadTimeDays days</td></tr> }
         </tbody></table>
     </div>
     <AuthorizeView Policy="@PolicyNames.CanManageMasterData"><Authorized Context="rawAuthorization">
@@ -123,8 +126,37 @@ else
     private IReadOnlyCollection<RawMaterialDto> RawMaterials = []; private IReadOnlyCollection<FormulationDto> Formulations = [];
     private IReadOnlyCollection<MaterialAvailabilityDto> Availability = [];
     private RawForm RawInput = new(); private FormulaForm FormulaInput = new();
-    protected override async Task OnInitializedAsync() => await ReloadAsync();
-    private async Task ReloadAsync() { RawMaterials = await MasterData.ListRawMaterialsAsync(); Formulations = await MasterData.ListFormulationsAsync(); Availability = await MaterialRequirements.ListAvailabilityAsync(); }
+    protected override async Task OnInitializedAsync() => await LoadTabAsync(Tab);
+
+    private async Task SwitchTabAsync(string tab)
+    {
+        Tab = tab;
+        await LoadTabAsync(tab);
+    }
+
+    // Load only what the visible tab needs. Previously all three loaded on every page open, so
+    // looking at Raw Materials still paid for ListAvailabilityAsync - the cumulative shortage
+    // engine, which materialises every material requirement and every incoming PO item.
+    private async Task LoadTabAsync(string tab)
+    {
+        switch (tab)
+        {
+            case "formulations":
+                // Both: the create form resolves the codes typed into Materials against
+                // RawMaterials, so the tab cannot work with Formulations alone.
+                RawMaterials = await MasterData.ListRawMaterialsAsync();
+                Formulations = await MasterData.ListFormulationsAsync();
+                break;
+            case "requirements":
+                Availability = await MaterialRequirements.ListAvailabilityAsync();
+                break;
+            default:
+                RawMaterials = await MasterData.ListRawMaterialsAsync();
+                break;
+        }
+    }
+
+    private Task ReloadAsync() => LoadTabAsync(Tab);
     private async Task CreateRawAsync() { try { await MasterData.CreateRawMaterialAsync(new(RawInput.Code, RawInput.Name, RawInput.Unit, RawInput.CurrentStock, RawInput.ReservedStock, RawInput.LeadTimeDays, true)); RawInput = new(); Message = "Raw material created."; MessageKind = StatusMessage.MessageKind.Success; await ReloadAsync(); } catch (DomainValidationException ex) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; } }
     private async Task CreateFormulaAsync()
     {
