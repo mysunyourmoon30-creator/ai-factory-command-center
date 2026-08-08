@@ -1,3 +1,4 @@
+using AI.Factory.Core.Audit;
 using AI.Factory.Core.Production;
 using AI.Factory.Core.Reporting;
 using AI.Factory.Core.Security;
@@ -32,8 +33,20 @@ public static class ReportEndpointExtensions
 
         // Audit Log Report export is gated by CanViewAuditLog (Admin+Manager), not the generic
         // CanExportReports (all four roles) — nobody should export a log they can't view.
-        reports.MapGet("/audit-log/export.csv", async (IReportExportService service, CancellationToken ct) =>
-                Results.File(await service.ExportAuditLogCsvAsync(ct), "text/csv; charset=utf-8", "audit-log-report.csv"))
+        // Filters mirror the Audit Log screen's own, so "Export CSV" returns what the operator is
+        // looking at. All are optional: with none supplied the export is the newest rows overall,
+        // capped by IReportExportService.MaxAuditLogExportRows rather than the whole table.
+        reports.MapGet("/audit-log/export.csv", async (
+                IReportExportService service,
+                string? search,
+                string? action,
+                DateTime? fromDate,
+                DateTime? toDate,
+                CancellationToken ct) =>
+                Results.File(
+                    await service.ExportAuditLogCsvAsync(new AuditLogQuery(search, action, fromDate, toDate), ct),
+                    "text/csv; charset=utf-8",
+                    "audit-log-report.csv"))
             .RequireAuthorization(PolicyNames.CanViewAuditLog);
 
         return endpoints;

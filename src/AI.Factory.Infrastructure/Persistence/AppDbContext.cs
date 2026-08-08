@@ -196,6 +196,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
         entity.Property(x => x.OrderedQuantity).HasPrecision(18, 3);
         entity.Property(x => x.ReceivedQuantity).HasPrecision(18, 3);
         entity.HasIndex(x => new { x.IncomingPurchaseOrderId, x.RawMaterialId }).IsUnique();
+        // No explicit RawMaterialId index here on purpose: EF's convention already creates
+        // IX_IncomingPurchaseOrderItems_RawMaterialId for the foreign key below, which the
+        // shortage path's per-material lookups seek on. See finding A6.
         entity.HasOne(x => x.IncomingPurchaseOrder).WithMany(x => x.Items).HasForeignKey(x => x.IncomingPurchaseOrderId).OnDelete(DeleteBehavior.Restrict);
         entity.HasOne(x => x.RawMaterial).WithMany().HasForeignKey(x => x.RawMaterialId).OnDelete(DeleteBehavior.Restrict);
     }
@@ -240,6 +243,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
         entity.Property(x => x.RequestId).HasMaxLength(150).IsRequired();
         entity.Property(x => x.CreatedAt).HasPrecision(0);
         entity.HasIndex(x => new { x.Username, x.EntityName, x.CreatedAt });
+        // AuditLogs is append-only and grows without bound, so its read paths are the ones that
+        // degrade first. The Username-leading index above cannot serve either of the two shapes
+        // AuditLogService actually issues: an equality filter on Action alone, and a range
+        // filter/sort on CreatedAt alone. Both were scans before these two indexes.
+        entity.HasIndex(x => new { x.Action, x.CreatedAt });
+        entity.HasIndex(x => x.CreatedAt);
     }
 
     private static void ConfigureAiToolExecutionLog(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<AiToolExecutionLog> entity)

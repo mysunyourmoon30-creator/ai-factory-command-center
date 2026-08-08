@@ -1,3 +1,4 @@
+using AI.Factory.Core.Audit;
 using AI.Factory.Core.Domain;
 using AI.Factory.Core.Orders;
 using AI.Factory.Core.Production;
@@ -82,11 +83,50 @@ public sealed class ReportExportService(
             }));
     }
 
-    public async Task<byte[]> ExportAuditLogCsvAsync(CancellationToken cancellationToken = default)
+    public async Task<byte[]> ExportAuditLogCsvAsync(AuditLogQuery? query = null, CancellationToken cancellationToken = default)
     {
-        var rows = await dbContext.AuditLogReport.AsNoTracking()
+        // Same filters the Audit Log screen applies, so an export matches what the operator is
+        // looking at, plus a hard row cap - this view sits on the one table that grows forever.
+        var rows = ApplyAuditLogFilter(dbContext.AuditLogReport.AsNoTracking(), query)
             .OrderByDescending(x => x.CreatedAt)
+            .Take(IReportExportService.MaxAuditLogExportRows)
             .ToArrayAsync(cancellationToken);
+
+        return BuildAuditLogCsv(await rows);
+    }
+
+    private static IQueryable<AuditLogReportRow> ApplyAuditLogFilter(IQueryable<AuditLogReportRow> rows, AuditLogQuery? query)
+    {
+        if (query is null)
+        {
+            return rows;
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var search = query.Search.Trim();
+            rows = rows.Where(x => x.Username.Contains(search) || x.EntityName.Contains(search));
+        }
+        if (!string.IsNullOrWhiteSpace(query.Action))
+        {
+            rows = rows.Where(x => x.Action == query.Action);
+        }
+        if (query.FromDate is not null)
+        {
+            var from = query.FromDate.Value.Date;
+            rows = rows.Where(x => x.CreatedAt >= from);
+        }
+        if (query.ToDate is not null)
+        {
+            var to = query.ToDate.Value.Date.AddDays(1);
+            rows = rows.Where(x => x.CreatedAt < to);
+        }
+
+        return rows;
+    }
+
+    private static byte[] BuildAuditLogCsv(AuditLogReportRow[] rows)
+    {
 
         return CsvSecurity.WriteCsv(
             ["Username", "Action", "Entity", "Entity Id", "Result", "Request Id", "Created At"],

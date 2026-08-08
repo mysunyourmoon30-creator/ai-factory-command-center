@@ -1,3 +1,5 @@
+using AI.Factory.Core.Audit;
+
 namespace AI.Factory.Core.Reporting;
 
 /// <summary>
@@ -10,8 +12,20 @@ namespace AI.Factory.Core.Reporting;
 /// </summary>
 public interface IReportExportService
 {
+    /// <summary>
+    /// Hard ceiling on rows in an audit-log export. AuditLogs is append-only and unbounded, so
+    /// an unfiltered export would otherwise materialise the entire table into memory and then
+    /// into a single response body.
+    /// </summary>
+    const int MaxAuditLogExportRows = 5000;
+
     Task<byte[]> ExportProductionRiskCsvAsync(CancellationToken cancellationToken = default);
     Task<byte[]> ExportMaterialShortageCsvAsync(CancellationToken cancellationToken = default);
     Task<byte[]> ExportPurchaseOrderStatusCsvAsync(CancellationToken cancellationToken = default);
-    Task<byte[]> ExportAuditLogCsvAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Exports the newest <see cref="MaxAuditLogExportRows"/> rows matching <paramref name="query"/>.
+    /// Passing a default query exports the newest rows overall rather than everything.
+    /// </summary>
+    Task<byte[]> ExportAuditLogCsvAsync(AuditLogQuery? query = null, CancellationToken cancellationToken = default);
 }

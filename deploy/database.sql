@@ -827,3 +827,32 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260808124321_AddAuditLogQueryIndexes'
+)
+BEGIN
+    CREATE INDEX [IX_AuditLogs_Action_CreatedAt] ON [AuditLogs] ([Action], [CreatedAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260808124321_AddAuditLogQueryIndexes'
+)
+BEGIN
+    CREATE INDEX [IX_AuditLogs_CreatedAt] ON [AuditLogs] ([CreatedAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260808124321_AddAuditLogQueryIndexes'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260808124321_AddAuditLogQueryIndexes', N'10.0.10');
+END;
+
+COMMIT;
+GO
+

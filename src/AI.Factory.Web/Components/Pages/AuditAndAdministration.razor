@@ -25,7 +25,7 @@
                 <div class="col-md-3"><label class="form-label">Search (user or entity)</label><input class="form-control" @bind="SearchInput" /></div>
                 <div class="col-md-3"><label class="form-label">Action</label><input class="form-control" @bind="ActionInput" placeholder="e.g. Login Success" /></div>
                 <div class="col-md-auto align-self-end"><button class="btn btn-outline-primary" @onclick="() => ReloadAuditAsync(1)">Filter</button></div>
-                <div class="col-md-auto align-self-end"><a class="btn btn-outline-secondary" href="/api/reports/audit-log/export.csv" target="_blank">Export CSV</a></div>
+                <div class="col-md-auto align-self-end"><a class="btn btn-outline-secondary" href="@AuditExportUrl" target="_blank">Export CSV</a></div>
             </div>
             @if (AuditPage.Items.Count == 0)
             {
@@ -106,6 +106,27 @@ else
         await AdminUsers.SetActiveAsync(actor, user.Id, !user.IsActive);
         DemoUsers = await AdminUsers.ListAsync(actor);
         Message = $"{user.Username} is now {(user.IsActive ? "inactive" : "active")}.";
+    }
+
+    // Carries the on-screen filter into the export so the CSV matches the table above it.
+    private string AuditExportUrl
+    {
+        get
+        {
+            var parameters = new List<string>();
+            if (!string.IsNullOrWhiteSpace(SearchInput))
+            {
+                parameters.Add($"search={Uri.EscapeDataString(SearchInput.Trim())}");
+            }
+            if (!string.IsNullOrWhiteSpace(ActionInput))
+            {
+                parameters.Add($"action={Uri.EscapeDataString(ActionInput.Trim())}");
+            }
+
+            return parameters.Count == 0
+                ? "/api/reports/audit-log/export.csv"
+                : $"/api/reports/audit-log/export.csv?{string.Join("&", parameters)}";
+        }
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;

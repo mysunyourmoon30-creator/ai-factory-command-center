@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using AI.Factory.Core.Security;
 using AI.Factory.Infrastructure.Identity;
+using AI.Factory.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,6 +9,7 @@ namespace AI.Factory.Infrastructure.Security;
 
 public sealed class AdminUserService(
     UserManager<ApplicationUser> userManager,
+    AppDbContext dbContext,
     IAuditWriter auditWriter) : IAdminUserService
 {
     public async Task<IReadOnlyCollection<DemoUser>> ListAsync(ClaimsPrincipal actor, CancellationToken cancellationToken = default)
@@ -15,14 +17,24 @@ public sealed class AdminUserService(
         EnsureCanManageUsers(actor);
 
         var users = await userManager.Users.AsNoTracking().OrderBy(x => x.UserName).ToArrayAsync(cancellationToken);
-        var result = new List<DemoUser>(users.Length);
 
-        foreach (var user in users)
-        {
-            result.Add(new DemoUser(user.Id, user.UserName ?? string.Empty, user.IsActive, (await userManager.GetRolesAsync(user)).ToArray()));
-        }
+        // One join instead of userManager.GetRolesAsync(...) per user, which issued 1+2N queries.
+        var roles = await (from userRole in dbContext.UserRoles.AsNoTracking()
+                           join role in dbContext.Roles.AsNoTracking() on userRole.RoleId equals role.Id
+                           select new { userRole.UserId, RoleName = role.Name })
+            .ToArrayAsync(cancellationToken);
 
-        return result;
+        var rolesByUser = roles
+            .GroupBy(x => x.UserId)
+            .ToDictionary(x => x.Key, x => x.Select(r => r.RoleName ?? string.Empty).ToArray());
+
+        return users
+            .Select(user => new DemoUser(
+                user.Id,
+                user.UserName ?? string.Empty,
+                user.IsActive,
+                rolesByUser.TryGetValue(user.Id, out var userRoles) ? userRoles : []))
+            .ToArray();
     }
 
     public async Task<bool> SetActiveAsync(ClaimsPrincipal actor, long userId, bool isActive, CancellationToken cancellationToken = default)
