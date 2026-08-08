@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using AI.Factory.Core.Production;
 using AI.Factory.Core.Security;
 using AI.Factory.Infrastructure.Identity;
@@ -57,6 +57,21 @@ public sealed class AdminUserService(
             // InvalidOperationException, which no caller caught: on the admin screen - the one
             // with the strongest privileges - a failed update tore down the circuit.
             throw new BusinessConflictException(string.Join("; ", result.Errors.Select(x => x.Description)));
+        }
+
+        // Deactivating only blocked *new* sign-ins: LoginAsync checks IsActive, but authorization
+        // on an already-issued cookie never re-reads the user, so a deactivated account kept full
+        // access for the rest of its 8-hour sliding window. Setting IsActive does not rotate the
+        // security stamp on its own, so the cookie stayed valid no matter what the validator did.
+        // Rotating it here is what actually revokes the live session, at the next
+        // SecurityStampValidatorOptions.ValidationInterval.
+        if (!isActive)
+        {
+            var stampResult = await userManager.UpdateSecurityStampAsync(user);
+            if (!stampResult.Succeeded)
+            {
+                throw new BusinessConflictException(string.Join("; ", stampResult.Errors.Select(x => x.Description)));
+            }
         }
 
         await auditWriter.WriteAsync("Activate / Deactivate User", "User", user.Id, isActive ? "Activated" : "Deactivated", cancellationToken: cancellationToken);

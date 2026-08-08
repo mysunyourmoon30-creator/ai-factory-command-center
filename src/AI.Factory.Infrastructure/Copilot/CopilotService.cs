@@ -23,11 +23,13 @@ public sealed class CopilotService(
     IOllamaClient ollamaClient,
     AppDbContext dbContext,
     IAuditWriter auditWriter,
+    CopilotRateLimiter rateLimiter,
     TimeProvider timeProvider,
     ILogger<CopilotService> logger) : ICopilotService
 {
     public const string FallbackText = "Unable to process the AI response. Please check the Dashboard or Reports directly.";
     public const string NoMatchText = "I can help with material shortages, delayed production orders, late purchase orders, or the daily factory summary. Please ask about one of these topics.";
+    public const string RateLimitedText = "Too many questions in the last minute. Please wait a moment and ask again.";
 
     private const int MaxContextLength = 8_000;
     private static readonly TimeSpan OllamaTimeout = TimeSpan.FromSeconds(20);
@@ -49,14 +51,28 @@ public sealed class CopilotService(
     public async Task<CopilotResponseDto> AskAsync(AskCopilotCommand command, ClaimsPrincipal actor, CancellationToken cancellationToken = default)
     {
         EnsureAuthorized(actor);
+
+        var requestId = Guid.NewGuid().ToString("N");
+        var stopwatch = Stopwatch.StartNew();
+        var userId = CurrentUserId(actor);
+
+        // Checked before anything else does work, which is the point of a limiter. Callers without
+        // a usable NameIdentifier share bucket 0; EnsureAuthorized has already established they are
+        // authenticated, so this is a theoretical case rather than an anonymous free-for-all.
+        var budget = rateLimiter.Check(userId ?? 0);
+        if (!budget.Permitted)
+        {
+            // Only the first rejection in the window is written down. Logging every rejected
+            // question would turn the flood being blocked into database work.
+            if (budget.IsFirstRejection)
+                await WriteExecutionLogAsync(requestId, "none", userId, 0, stopwatch, "RateLimited", null, cancellationToken);
+            return new CopilotResponseDto(RateLimitedText, null, [], [], IsFallback: true);
+        }
+
         var question = (command.Question ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(question) || question.Length > MaxQuestionLength)
             throw new DomainValidationException($"Question is required and limited to {MaxQuestionLength} characters.");
 
-        var requestId = Guid.NewGuid().ToString("N");
-        var stopwatch = Stopwatch.StartNew();
-
-        var userId = CurrentUserId(actor);
         var tool = tools.FirstOrDefault(t => t.AllowedRoles.Any(actor.IsInRole) && t.Matches(question));
         if (tool is null)
         {

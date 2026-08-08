@@ -1,4 +1,4 @@
-using AI.Factory.Api;
+﻿using AI.Factory.Api;
 using AI.Factory.Infrastructure;
 using AI.Factory.Infrastructure.Identity;
 using AI.Factory.Infrastructure.Persistence;
@@ -63,6 +63,14 @@ builder.Services.Configure<CookieAuthenticationOptions>(IdentityConstants.Applic
         return Task.CompletedTask;
     };
 });
+// AddIdentityCookies() already points OnValidatePrincipal at SecurityStampValidator, and the
+// Configure above mutates the existing Events instance rather than replacing it, so that hook
+// survives. What was missing was anything to validate *against*: deactivating a user did not
+// rotate their security stamp, so the check always passed. AdminUserService now rotates it, and
+// this states the revocation window explicitly rather than inheriting a framework default that
+// could change underneath us.
+builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+    options.ValidationInterval = TimeSpan.FromMinutes(30));
 builder.Services.AddAntiforgery(options =>
 {
     options.HeaderName = "X-XSRF-TOKEN";

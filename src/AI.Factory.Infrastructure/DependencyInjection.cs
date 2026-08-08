@@ -62,6 +62,12 @@ public static class DependencyInjection
         services.AddScoped<IAiTool, LatePurchaseOrderAiTool>();
         services.AddScoped<IAiTool, DailyFactorySummaryAiTool>();
         services.AddScoped<ICopilotService, CopilotService>();
+        // Same key the "ai-copilot" endpoint policy reads, so the in-process budget and the HTTP
+        // one cannot drift apart. Resolved from the container rather than captured directly so it
+        // shares the TimeProvider registered below - including the fixed one used by tests.
+        services.AddSingleton(provider => new CopilotRateLimiter(
+            provider.GetRequiredService<TimeProvider>(),
+            configuration.GetValue("RateLimits:AiCopilotPermitLimit", 10)));
         services.AddSingleton(CreateOllamaHttpClient(configuration));
         services.AddScoped<IOllamaClient, OllamaClient>();
         services.AddScoped<IReadinessService, ReadinessService>();

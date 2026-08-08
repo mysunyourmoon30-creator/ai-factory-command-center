@@ -161,6 +161,35 @@ and are closed; this series covers the other eight routes plus the defects that 
 | G8 | `/machine-monitoring` | The connection badge was computed from the connection but nothing re-rendered when the connection changed, so it read "Connecting…" forever. `WithAutomaticReconnect()` was configured with no `Reconnecting`/`Reconnected`/`Closed` handlers. | Medium | **Closed (C2)** |
 | G9 | `/machine-monitoring` | `Running` and `Stopped` rendered as identical plain text inside a `<dl>`; the alert badge carried the only colour on the card. On the one screen whose requirement is "readable within seconds", the running state was the hardest thing to read. Now a coloured pill, with the card bordered by its computed alert status. | Medium | **Closed (C2)** |
 
+| G10 | `/audit-administration` | **Deactivating a user did not end their session.** `LoginAsync` and `GetCurrentUserAsync` check `IsActive`, but authorization on an already-issued cookie never re-reads the user, so a deactivated account — including an Admin — kept full access for the rest of its 8-hour sliding window. See the proof below. | High | **Closed (C3)** |
+| G11 | `/ai-copilot` | The `"ai-copilot"` rate-limiting policy only guards `POST /api/ai-copilot/ask`. The page calls `ICopilotService` in-process per the shared-service rule, so the limit never ran on the path the UI takes and questions asked through the screen were unlimited — one authenticated user of any role could pin Ollama and flood `AiToolExecutionLogs`. Same shape as A2: protection sitting on a path the UI does not use. | Medium | **Closed (C3)** |
+| G12 | *four screens* | CSV export links used `target="_blank"` with no `rel="noopener noreferrer"`. Same-origin, so not exploitable here, but it is the kind of thing that stops being true the day a link points elsewhere. | Low | **Closed (C3)** |
+
+#### G10 — deactivation proved ineffective, then proved fixed
+
+`AddIdentityCookies()` already points `OnValidatePrincipal` at `SecurityStampValidator`, and the
+`Configure` in `Program.cs` mutates the existing `Events` instance rather than replacing it, so that
+hook survived. What was missing was anything for it to *detect*: `SetActiveAsync` set `IsActive` and
+called `UpdateAsync`, which does **not** rotate the security stamp, and the validator compares only
+the stamp — it never consults `IsActive`. So the check passed every time and the cookie stayed good.
+
+The fix rotates the stamp on deactivation and states the revocation window explicitly
+(`SecurityStampValidatorOptions.ValidationInterval = 30 minutes`) rather than inheriting a framework
+default that could change underneath us.
+
+Verified against the running app with the interval temporarily set to zero, signing in as
+`viewer.demo` in one cookie jar and deactivating them from another as `admin.demo`. The
+counterfactual — the identical run with only the stamp rotation disabled — is what makes this a
+measurement rather than an assumption:
+
+| stamp rotation | `GET /orders` | `GET /api/machines` |
+|---|---|---|
+| off (the behaviour before this fix) | 200 | 200 |
+| on (after) | 302 → `/login` | 401 |
+
+Both rows are the *same signed-in session*, with no re-login in between. `viewer.demo` was
+reactivated afterwards and the interval restored to 30 minutes.
+
 #### G7 — corrected root cause for the `/machine-monitoring` failure
 
 An earlier pass recorded this page's HTTP 500 as being caused by an untrusted development
