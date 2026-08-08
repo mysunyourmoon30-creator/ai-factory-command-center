@@ -13,6 +13,9 @@ public static class PageMetadata
     [
         ("/materials", new("Planning", "Material Management")),
         ("/orders", new("Planning", "Customer Orders")),
+        // Longer prefix wins, so the create route keeps its own heading now that the page no
+        // longer carries one.
+        ("/orders/new", new("Planning", "New Customer Order")),
         ("/production-plans", new("Planning", "Production Plans")),
         ("/material-shortages", new("Procurement", "Material Shortage")),
         ("/procurement", new("Procurement", "Procurement")),
@@ -20,6 +23,7 @@ public static class PageMetadata
         ("/ai-copilot", new("Operations", "AI Copilot")),
         ("/audit-administration", new("Administration", "Audit & Administration")),
         ("/login", new("", "Sign in")),
+        ("/error", new("", "Error")),
         ("/forbidden", new("", "Access denied")),
         ("/not-found", new("", "Not found")),
     ];

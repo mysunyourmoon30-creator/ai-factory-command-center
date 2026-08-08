@@ -7,7 +7,6 @@
 @implements IAsyncDisposable
 
 <PageTitle>Machine Monitoring</PageTitle>
-<h1>Machine Monitoring</h1>
 <p class="text-muted">Live connection: <span class="badge @(IsConnected ? "text-bg-success" : "text-bg-secondary")">@(IsConnected ? "Connected" : "Connecting...")</span></p>
 <StatusMessage Message="@Message" Kind="@MessageKind" />
 

@@ -3,7 +3,6 @@
 @inject IDashboardService Dashboard
 
 <PageTitle>AI Factory Command Center</PageTitle>
-<h1>Dashboard</h1>
 
 @if (Kpi is null)
 {
@@ -12,17 +11,19 @@
 else
 {
     <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-lg-4">
-        <div class="col"><KpiCard Label="Customer Orders" Value="@Kpi.CustomerOrderCount" Icon="orders" /></div>
-        <div class="col"><KpiCard Label="Production Plans" Value="@Kpi.ProductionPlanCount" Icon="plans" /></div>
-        <div class="col"><KpiCard Label="Orders at Risk" Value="@Kpi.OrdersAtRiskCount" Icon="shortage" Tone="@Warn(Kpi.OrdersAtRiskCount)" /></div>
-        <div class="col"><KpiCard Label="Material Shortages" Value="@Kpi.MaterialShortageCount" Icon="materials" Tone="@Warn(Kpi.MaterialShortageCount)" /></div>
-        <div class="col"><KpiCard Label="Late Purchase Orders" Value="@Kpi.LatePurchaseOrderCount" Icon="procurement" Tone="@Warn(Kpi.LatePurchaseOrderCount)" /></div>
-        <div class="col"><KpiCard Label="Machine Alerts" Value="@Kpi.MachineAlertCount" Icon="machines" Tone="@Warn(Kpi.MachineAlertCount)" /></div>
-        <div class="col"><KpiCard Label="Critical Risks" Value="@Kpi.CriticalRiskCount" Icon="shortage" Tone="@Danger(Kpi.CriticalRiskCount)" /></div>
+        <div class="col"><KpiCard Label="Customer Orders" Value="@Kpi.CustomerOrderCount" Icon="orders" Href="orders" /></div>
+        <div class="col"><KpiCard Label="Production Plans" Value="@Kpi.ProductionPlanCount" Icon="plans" Href="production-plans" /></div>
+        <div class="col"><KpiCard Label="Orders at Risk" Value="@Kpi.OrdersAtRiskCount" Icon="shortage" Tone="@Warn(Kpi.OrdersAtRiskCount)" Href="orders" /></div>
+        <div class="col"><KpiCard Label="Material Shortages" Value="@Kpi.MaterialShortageCount" Icon="materials" Tone="@Warn(Kpi.MaterialShortageCount)" Href="material-shortages" /></div>
+        <div class="col"><KpiCard Label="Late Purchase Orders" Value="@Kpi.LatePurchaseOrderCount" Icon="procurement" Tone="@Warn(Kpi.LatePurchaseOrderCount)" Href="procurement" /></div>
+        <div class="col"><KpiCard Label="Machine Alerts" Value="@Kpi.MachineAlertCount" Icon="machines" Tone="@Warn(Kpi.MachineAlertCount)" Href="machine-monitoring" /></div>
+        @* Critical Risks has no screen of its own - it is the sum of delayed orders and critical
+           machines, both broken out in the section directly below. *@
+        <div class="col"><KpiCard Label="Critical Risks" Value="@Kpi.CriticalRiskCount" Icon="shortage" Tone="@Danger(Kpi.CriticalRiskCount)" Href="#critical-risks" /></div>
     </div>
 }
 
-<h2 class="h4 mt-4">Critical Risks</h2>
+<h2 class="h4 mt-4" id="critical-risks">Critical Risks</h2>
 @if (CriticalRisks is null)
 {
     <EmptyState Message="Loading critical risks..." Loading="true" />

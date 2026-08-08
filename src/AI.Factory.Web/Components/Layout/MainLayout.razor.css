@@ -49,6 +49,8 @@ main {
 }
 
 .page-title {
+    /* An <h1>, so the app-wide h1 rule's size and margin have to be overridden here. */
+    margin: 0;
     font-size: var(--af-text-lg);
     font-weight: 600;
     color: var(--af-text);

@@ -15,7 +15,9 @@
                     <span class="page-section">@Meta.Section</span>
                     <span class="page-separator" aria-hidden="true">/</span>
                 }
-                <span class="page-title">@Meta.Title</span>
+                @* The real page heading, so removing each page's own duplicate <h1> does not
+                   leave the document without one. Section above it is decoration, not structure. *@
+                <h1 class="page-title">@Meta.Title</h1>
             </div>
 
             <div class="top-actions">

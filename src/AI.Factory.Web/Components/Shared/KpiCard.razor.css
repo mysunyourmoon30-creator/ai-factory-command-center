@@ -16,6 +16,26 @@
     box-shadow: var(--af-shadow-sm);
 }
 
+/* Linked tiles must not look like body copy, and must show they are actionable. */
+.kpi-link {
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+.kpi-link:hover,
+.kpi-link:focus-visible {
+    border-color: var(--af-accent);
+    box-shadow: 0 0 0 1px var(--af-accent);
+    color: inherit;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .kpi-link:hover {
+        transform: translateY(-1px);
+    }
+}
+
 .kpi-icon {
     display: grid;
     place-items: center;

@@ -7,20 +7,33 @@
     instead of decorating.
 *@
 
-<div class="kpi @ToneClass">
-    @if (Icon is not null)
-    {
-        <span class="kpi-icon"><NavIcon Name="@Icon" /></span>
-    }
-    <span class="kpi-body">
-        <span class="kpi-label">@Label</span>
-        <span class="kpi-value">@Value</span>
-        @if (!string.IsNullOrWhiteSpace(Caption))
+@* Renders as a link when Href is set, so a number the user wants to investigate is the thing
+   they click. A <div> stays a <div> otherwise - no fake-interactive cards. *@
+@if (Href is null)
+{
+    <div class="kpi @ToneClass">@Content</div>
+}
+else
+{
+    <a class="kpi kpi-link @ToneClass" href="@Href">@Content</a>
+}
+
+@code {
+    private RenderFragment Content => @<text>
+        @if (Icon is not null)
         {
-            <span class="kpi-caption">@Caption</span>
+            <span class="kpi-icon"><NavIcon Name="@Icon" /></span>
         }
-    </span>
-</div>
+        <span class="kpi-body">
+            <span class="kpi-label">@Label</span>
+            <span class="kpi-value">@Value</span>
+            @if (!string.IsNullOrWhiteSpace(Caption))
+            {
+                <span class="kpi-caption">@Caption</span>
+            }
+        </span>
+    </text>;
+}
 
 @code {
     public enum KpiTone { Neutral, Success, Warning, Danger }
@@ -35,6 +48,9 @@
     [Parameter] public string? Caption { get; set; }
 
     [Parameter] public KpiTone Tone { get; set; } = KpiTone.Neutral;
+
+    /// <summary>Where this figure can be investigated. Omit for a figure with nowhere to go.</summary>
+    [Parameter] public string? Href { get; set; }
 
     private string ToneClass => Tone switch
     {

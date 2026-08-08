@@ -8,7 +8,8 @@
 @inject TimeProvider TimeProvider
 
 <PageTitle>Customer Order</PageTitle>
-<div class="d-flex justify-content-between align-items-center mb-3"><h1>@(Id is null ? "Create Customer Order" : "Customer Order Detail")</h1><a href="orders">Back to list</a></div>
+@* Heading lives in the top bar now; PageMetadata distinguishes /orders/new from a detail route. *@
+<div class="d-flex justify-content-end align-items-center mb-3"><a href="orders">Back to list</a></div>
 
 <StatusMessage Message="@Message" Kind="@MessageKind" />
 @if (Loading) { <p>Loading...</p> }

@@ -3,8 +3,8 @@
 @inject ICustomerOrderService Orders
 
 <PageTitle>Customer Orders</PageTitle>
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>Customer Orders</h1>
+@* Heading lives in the top bar now; this row keeps only the page action. *@
+<div class="d-flex justify-content-end align-items-center mb-3">
     <AuthorizeView Policy="@PolicyNames.CanManageOrders">
         <Authorized Context="createAuthorization"><a class="btn btn-primary" href="orders/new">Create order</a></Authorized>
     </AuthorizeView>
