@@ -21,7 +21,7 @@
                 <DataAnnotationsValidator /><ValidationSummary />
                 <div class="row g-2">
                     <div class="col-md-3"><label class="form-label">Plan number</label><InputText class="form-control" @bind-Value="Input.PlanNumber" /></div>
-                    <div class="col-md-3"><label class="form-label">Customer order</label><InputSelect class="form-select" @bind-Value="Input.CustomerOrderId"><option value="0">Select order</option>@foreach (var order in EligibleOrders) { <option value="@order.Id">@order.OrderNumber - @order.FormulationCode (@order.Quantity.ToString("N3"))</option> }</InputSelect></div>
+                    <div class="col-md-3"><label class="form-label">Customer order</label><InputSelect class="form-select" @bind-Value="Input.CustomerOrderId"><option value="0">Select order</option>@foreach (var order in EligibleOrders) { <option value="@order.Id">@order.OrderNumber - @order.FormulationCode (@order.Quantity.ToString("N3", CultureInfo.InvariantCulture))</option> }</InputSelect></div>
                     <div class="col-md-3"><label class="form-label">Machine assignment</label><InputSelect class="form-select" @bind-Value="Input.MachineId"><option value="0">Select machine</option>@foreach (var machine in Machines) { <option value="@machine.Id">@machine.Code - @machine.Name</option> }</InputSelect></div>
                     <div class="col-md-3"><label class="form-label">Planned completion</label><InputDate class="form-control" @bind-Value="Input.PlannedCompletionDate" /></div>
                 </div>
@@ -63,11 +63,11 @@ else
 {
     <h2 class="h4 mt-4">@Selected.PlanNumber Detail</h2>
     <dl class="row"><dt class="col-sm-3">Order / formulation</dt><dd class="col-sm-9">@Selected.OrderNumber / @Selected.FormulationCode</dd>
-        <dt class="col-sm-3">Quantity / required batch</dt><dd class="col-sm-9">@Selected.OrderQuantity.ToString("N3") / @Selected.RequiredBatch batch(es)</dd>
+        <dt class="col-sm-3">Quantity / required batch</dt><dd class="col-sm-9">@Selected.OrderQuantity.ToString("N3", CultureInfo.InvariantCulture) / @Selected.RequiredBatch batch(es)</dd>
         <dt class="col-sm-3">Machine</dt><dd class="col-sm-9">@Selected.MachineCode - @Selected.MachineName</dd></dl>
     <div class="table-responsive">
         <table class="table table-sm"><thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Required</th><th scope="col" class="text-end">Current Stock</th><th scope="col" class="text-end">Reserved</th></tr></thead>
-            <tbody>@foreach (var material in Selected.MaterialRequirements) { <tr><td>@material.RawMaterialCode - @material.RawMaterialName</td><td class="text-end">@material.RequiredQuantity.ToString("N3") @material.Unit</td><td class="text-end">@material.CurrentStock.ToString("N3")</td><td class="text-end">@material.ReservedStock.ToString("N3")</td></tr> }</tbody></table>
+            <tbody>@foreach (var material in Selected.MaterialRequirements) { <tr><td>@material.RawMaterialCode - @material.RawMaterialName</td><td class="text-end">@material.RequiredQuantity.ToString("N3", CultureInfo.InvariantCulture) @material.Unit</td><td class="text-end">@material.CurrentStock.ToString("N3", CultureInfo.InvariantCulture)</td><td class="text-end">@material.ReservedStock.ToString("N3", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
     </div>
     <AuthorizeView Policy="@PolicyNames.CanManageProductionPlans">
         <Authorized Context="transitionAuthorization">

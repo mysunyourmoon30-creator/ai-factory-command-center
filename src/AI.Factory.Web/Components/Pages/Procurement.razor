@@ -39,7 +39,7 @@
         <h2 class="h4 mt-4">@SelectedRequest.RequestNumber Detail</h2>
         <div class="table-responsive">
             <table class="table table-sm"><thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Requested Quantity</th><th scope="col">Expected Date</th></tr></thead>
-                <tbody>@foreach (var item in SelectedRequest.Items) { <tr><td>@item.RawMaterialCode</td><td class="text-end">@item.RequestedQuantity.ToString("N3")</td><td>@item.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
+                <tbody>@foreach (var item in SelectedRequest.Items) { <tr><td>@item.RawMaterialCode</td><td class="text-end">@item.RequestedQuantity.ToString("N3", CultureInfo.InvariantCulture)</td><td>@item.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
         </div>
         @if (!string.IsNullOrWhiteSpace(SelectedRequest.RejectionReason)) { <div class="alert alert-warning">Rejected: @SelectedRequest.RejectionReason</div> }
 
@@ -106,7 +106,7 @@ else
         <h2 class="h4 mt-4">@SelectedOrder.PurchaseOrderNumber Detail</h2>
         <div class="table-responsive">
             <table class="table table-sm"><thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Ordered</th><th scope="col" class="text-end">Received</th></tr></thead>
-                <tbody>@foreach (var item in SelectedOrder.Items) { <tr><td>@item.RawMaterialCode - @item.RawMaterialName</td><td class="text-end">@item.OrderedQuantity.ToString("N3") @item.Unit</td><td class="text-end">@item.ReceivedQuantity.ToString("N3")</td></tr> }</tbody></table>
+                <tbody>@foreach (var item in SelectedOrder.Items) { <tr><td>@item.RawMaterialCode - @item.RawMaterialName</td><td class="text-end">@item.OrderedQuantity.ToString("N3", CultureInfo.InvariantCulture) @item.Unit</td><td class="text-end">@item.ReceivedQuantity.ToString("N3", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
         </div>
 
         <AuthorizeView Policy="@PolicyNames.CanRecordIncomingPurchaseOrder">
@@ -115,7 +115,7 @@ else
                 <EditForm Model="ReceiveInput" OnValidSubmit="ReceiveAsync">
                     <DataAnnotationsValidator /><ValidationSummary />
                     <div class="row g-2">
-                        <div class="col-md-4"><label class="form-label">Raw material</label><InputSelect class="form-select" @bind-Value="ReceiveInput.RawMaterialId"><option value="0">Select material</option>@foreach (var item in SelectedOrder.Items) { <option value="@item.RawMaterialId">@item.RawMaterialCode (ordered @item.OrderedQuantity.ToString("N3"))</option> }</InputSelect></div>
+                        <div class="col-md-4"><label class="form-label">Raw material</label><InputSelect class="form-select" @bind-Value="ReceiveInput.RawMaterialId"><option value="0">Select material</option>@foreach (var item in SelectedOrder.Items) { <option value="@item.RawMaterialId">@item.RawMaterialCode (ordered @item.OrderedQuantity.ToString("N3", CultureInfo.InvariantCulture))</option> }</InputSelect></div>
                         <div class="col-md-4"><label class="form-label">Cumulative received quantity</label><InputNumber class="form-control" @bind-Value="ReceiveInput.TargetReceivedQuantity" /></div>
                     </div>
                     <button class="btn btn-primary mt-2" type="submit">Update received quantity</button>
@@ -138,7 +138,7 @@ else
                 {
                     <div class="table-responsive">
                         <table class="table table-sm mt-2"><thead><tr><th scope="col">Raw Material</th><th scope="col">Requested</th><th scope="col">Ordered Quantity</th></tr></thead>
-                            <tbody>@foreach (var item in CreateInput.Items) { <tr><td>@item.RawMaterialCode</td><td>@item.RequestedQuantity.ToString("N3")</td><td style="max-width:10rem"><InputNumber class="form-control" @bind-Value="item.OrderedQuantity" /></td></tr> }</tbody></table>
+                            <tbody>@foreach (var item in CreateInput.Items) { <tr><td>@item.RawMaterialCode</td><td>@item.RequestedQuantity.ToString("N3", CultureInfo.InvariantCulture)</td><td style="max-width:10rem"><InputNumber class="form-control" @bind-Value="item.OrderedQuantity" /></td></tr> }</tbody></table>
                     </div>
                     <button class="btn btn-primary" @onclick="CreateIncomingOrderAsync">Create incoming purchase order</button>
                 }

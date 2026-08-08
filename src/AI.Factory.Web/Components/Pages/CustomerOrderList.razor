@@ -35,7 +35,7 @@ else
             {
                 <tr>
                     <td><a href="orders/@order.Id">@order.OrderNumber</a></td><td>@order.CustomerName</td><td>@order.FormulationCode</td>
-                    <td class="text-end">@order.Quantity.ToString("N3")</td><td>@order.DeliveryDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td>@order.Priority</td>
+                    <td class="text-end">@order.Quantity.ToString("N3", CultureInfo.InvariantCulture)</td><td>@order.DeliveryDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td>@order.Priority</td>
                     <td><span class="badge text-bg-secondary">@order.LifecycleStatus</span></td>
                     <td><StatusBadge Risk="order.RiskStatus" /></td>
                 </tr>

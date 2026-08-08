@@ -28,11 +28,11 @@ else
             <tbody>@foreach (var row in FilteredRows) {
                 <tr>
                     <td>@row.RawMaterialCode - @row.RawMaterialName</td>
-                    <td class="text-end">@row.TotalRequirement.ToString("N3") @row.Unit</td>
-                    <td class="text-end">@Math.Max(row.OnHandAvailable, 0).ToString("N3") @if (row.OnHandAvailable < 0) { <span class="badge text-bg-danger ms-1">Negative</span> }</td>
-                    <td class="text-end">@row.EligibleIncoming.ToString("N3")</td>
-                    <td class="text-end">@Math.Max(row.ProjectedAvailable, 0).ToString("N3")</td>
-                    <td class="text-end"><span class="badge @(row.ShortageQuantity > 0 ? "text-bg-danger" : "text-bg-success")">@row.ShortageQuantity.ToString("N3")</span></td>
+                    <td class="text-end">@row.TotalRequirement.ToString("N3", CultureInfo.InvariantCulture) @row.Unit</td>
+                    <td class="text-end">@Math.Max(row.OnHandAvailable, 0).ToString("N3", CultureInfo.InvariantCulture) @if (row.OnHandAvailable < 0) { <span class="badge text-bg-danger ms-1">Negative</span> }</td>
+                    <td class="text-end">@row.EligibleIncoming.ToString("N3", CultureInfo.InvariantCulture)</td>
+                    <td class="text-end">@Math.Max(row.ProjectedAvailable, 0).ToString("N3", CultureInfo.InvariantCulture)</td>
+                    <td class="text-end"><span class="badge @(row.ShortageQuantity > 0 ? "text-bg-danger" : "text-bg-success")">@row.ShortageQuantity.ToString("N3", CultureInfo.InvariantCulture)</span></td>
                     <td>@(row.MaterialRequiredDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
                     <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => Select(row)">Detail</button></td>
                 </tr>
@@ -52,7 +52,7 @@ else
     {
         <div class="table-responsive">
             <table class="table table-sm"><thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Plan</th><th scope="col">Required Date</th><th scope="col" class="text-end">Required</th></tr></thead>
-                <tbody>@foreach (var order in Selected.AffectedOrders) { <tr><td>@order.OrderNumber</td><td>@order.CustomerName</td><td>@order.PlanNumber</td><td>@order.RequiredDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td class="text-end">@order.RequiredQuantity.ToString("N3")</td></tr> }</tbody></table>
+                <tbody>@foreach (var order in Selected.AffectedOrders) { <tr><td>@order.OrderNumber</td><td>@order.CustomerName</td><td>@order.PlanNumber</td><td>@order.RequiredDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td class="text-end">@order.RequiredQuantity.ToString("N3", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
         </div>
     }
 
@@ -63,7 +63,7 @@ else
         <div class="alert alert-warning">Late purchase orders are shown for visibility and are never counted as eligible incoming supply.</div>
         <div class="table-responsive">
             <table class="table table-sm"><thead><tr><th scope="col">Purchase Order</th><th scope="col">Expected</th><th scope="col" class="text-end">Delay (days)</th><th scope="col" class="text-end">Outstanding</th></tr></thead>
-                <tbody>@foreach (var late in Selected.LatePurchaseOrders) { <tr><td>@late.PurchaseOrderNumber</td><td>@late.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td class="text-end">@late.DelayDays</td><td class="text-end">@late.OutstandingQuantity.ToString("N3")</td></tr> }</tbody></table>
+                <tbody>@foreach (var late in Selected.LatePurchaseOrders) { <tr><td>@late.PurchaseOrderNumber</td><td>@late.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td class="text-end">@late.DelayDays</td><td class="text-end">@late.OutstandingQuantity.ToString("N3", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
         </div>
     }
 

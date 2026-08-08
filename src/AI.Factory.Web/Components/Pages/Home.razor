@@ -54,7 +54,7 @@ else
     {
         <div class="table-responsive">
             <table class="table table-sm"><thead><tr><th scope="col">Machine</th><th scope="col" class="text-end">Temperature</th><th scope="col" class="text-end">Speed</th></tr></thead>
-                <tbody>@foreach (var machine in CriticalRisks.CriticalMachines) { <tr><td>@machine.MachineCode</td><td class="text-end">@machine.Temperature.ToString("N0")&deg;C</td><td class="text-end">@machine.Speed.ToString("N0")</td></tr> }</tbody></table>
+                <tbody>@foreach (var machine in CriticalRisks.CriticalMachines) { <tr><td>@machine.MachineCode</td><td class="text-end">@machine.Temperature.ToString("N1", CultureInfo.InvariantCulture)&deg;C</td><td class="text-end">@machine.Speed.ToString("N1", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
         </div>
     }
 }

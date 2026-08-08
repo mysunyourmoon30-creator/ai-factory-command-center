@@ -17,7 +17,7 @@
 {
     <div class="table-responsive">
         <table class="table table-striped"><thead><tr><th scope="col">Code</th><th scope="col">Name</th><th scope="col">Stock</th><th scope="col">Reserved</th><th scope="col">Available</th><th scope="col">Lead time</th></tr></thead><tbody>
-        @foreach (var item in RawMaterials) { <tr><td>@item.Code</td><td>@item.Name</td><td>@item.CurrentStock.ToString("N3") @item.Unit</td><td>@item.ReservedStock.ToString("N3")</td><td>@Math.Max(item.CurrentStock - item.ReservedStock, 0).ToString("N3")</td><td>@item.LeadTimeDays days</td></tr> }
+        @foreach (var item in RawMaterials) { <tr><td>@item.Code</td><td>@item.Name</td><td>@item.CurrentStock.ToString("N3", CultureInfo.InvariantCulture) @item.Unit</td><td>@item.ReservedStock.ToString("N3", CultureInfo.InvariantCulture)</td><td>@Math.Max(item.CurrentStock - item.ReservedStock, 0).ToString("N3", CultureInfo.InvariantCulture)</td><td>@item.LeadTimeDays days</td></tr> }
         </tbody></table>
     </div>
     <AuthorizeView Policy="@PolicyNames.CanManageMasterData"><Authorized Context="rawAuthorization">
@@ -38,12 +38,12 @@ else if (Tab == "requirements")
         {
             <tr>
                 <td>@item.RawMaterialCode - @item.RawMaterialName</td>
-                <td class="text-end">@item.RequiredQuantity.ToString("N3") @item.Unit</td>
-                <td class="text-end">@item.CurrentStock.ToString("N3")</td>
-                <td class="text-end">@item.ReservedStock.ToString("N3")</td>
-                <td class="text-end">@item.EligibleIncoming.ToString("N3")</td>
-                <td class="text-end">@Math.Max(item.ProjectedAvailable, 0).ToString("N3") @if (item.ProjectedAvailable < 0) { <span class="badge text-bg-danger ms-1">Negative</span> }</td>
-                <td class="text-end">@if (item.ShortageQuantity > 0) { <span class="badge text-bg-danger">@item.ShortageQuantity.ToString("N3")</span> } else { <text>-</text> }</td>
+                <td class="text-end">@item.RequiredQuantity.ToString("N3", CultureInfo.InvariantCulture) @item.Unit</td>
+                <td class="text-end">@item.CurrentStock.ToString("N3", CultureInfo.InvariantCulture)</td>
+                <td class="text-end">@item.ReservedStock.ToString("N3", CultureInfo.InvariantCulture)</td>
+                <td class="text-end">@item.EligibleIncoming.ToString("N3", CultureInfo.InvariantCulture)</td>
+                <td class="text-end">@Math.Max(item.ProjectedAvailable, 0).ToString("N3", CultureInfo.InvariantCulture) @if (item.ProjectedAvailable < 0) { <span class="badge text-bg-danger ms-1">Negative</span> }</td>
+                <td class="text-end">@if (item.ShortageQuantity > 0) { <span class="badge text-bg-danger">@item.ShortageQuantity.ToString("N3", CultureInfo.InvariantCulture)</span> } else { <text>-</text> }</td>
                 <td>@(item.EvaluationDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "No active demand")</td>
             </tr>
         }
@@ -54,7 +54,7 @@ else
 {
     <div class="table-responsive">
         <table class="table table-striped"><thead><tr><th scope="col">Code</th><th scope="col">Name</th><th scope="col">Batch</th><th scope="col">Materials</th></tr></thead><tbody>
-        @foreach (var item in Formulations) { <tr><td>@item.Code</td><td>@item.Name</td><td>@item.BatchSize.ToString("N3") kg</td><td>@string.Join(", ", item.Materials.Select(x => $"{x.RawMaterialCode}: {x.WeightPerBatch:N3}"))</td></tr> }
+        @foreach (var item in Formulations) { <tr><td>@item.Code</td><td>@item.Name</td><td>@item.BatchSize.ToString("N3", CultureInfo.InvariantCulture) kg</td><td>@string.Join(", ", item.Materials.Select(x => $"{x.RawMaterialCode}: {x.WeightPerBatch:N3}"))</td></tr> }
         </tbody></table>
     </div>
     <AuthorizeView Policy="@PolicyNames.CanManageMasterData"><Authorized Context="formulationAuthorization">

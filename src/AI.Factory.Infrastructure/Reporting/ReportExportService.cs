@@ -46,11 +46,11 @@ public sealed class ReportExportService(
             materials.Select(x => new string?[]
             {
                 $"{x.RawMaterialCode} - {x.RawMaterialName}",
-                x.RequiredQuantity.ToString("N3"),
-                x.OnHandAvailable.ToString("N3"),
-                x.EligibleIncoming.ToString("N3"),
-                x.ProjectedAvailable.ToString("N3"),
-                x.ShortageQuantity.ToString("N3"),
+                x.RequiredQuantity.ToString("N3", System.Globalization.CultureInfo.InvariantCulture),
+                x.OnHandAvailable.ToString("N3", System.Globalization.CultureInfo.InvariantCulture),
+                x.EligibleIncoming.ToString("N3", System.Globalization.CultureInfo.InvariantCulture),
+                x.ProjectedAvailable.ToString("N3", System.Globalization.CultureInfo.InvariantCulture),
+                x.ShortageQuantity.ToString("N3", System.Globalization.CultureInfo.InvariantCulture),
                 x.MaterialRequiredDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
             }));
     }
@@ -75,8 +75,8 @@ public sealed class ReportExportService(
                     x.ExpectedDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
                     x.ReceivedDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
                     x.Status.ToString(),
-                    x.TotalOrderedQuantity.ToString("N3"),
-                    x.TotalReceivedQuantity.ToString("N3"),
+                    x.TotalOrderedQuantity.ToString("N3", System.Globalization.CultureInfo.InvariantCulture),
+                    x.TotalReceivedQuantity.ToString("N3", System.Globalization.CultureInfo.InvariantCulture),
                     isLate ? "Yes" : "No",
                     PurchaseRequestRules.CalculateDelayDays(x.ExpectedDate, today).ToString()
                 };
