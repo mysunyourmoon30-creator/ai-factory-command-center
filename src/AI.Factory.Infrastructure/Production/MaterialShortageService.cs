@@ -1,4 +1,5 @@
 using System.Data;
+using System.Globalization;
 using System.Security.Claims;
 using AI.Factory.Core.Domain;
 using AI.Factory.Core.MasterData;
@@ -69,7 +70,7 @@ public sealed class MaterialShortageService(
             if (shortage <= 0)
                 throw new BusinessConflictException("There is no outstanding shortage for this raw material.");
             if (command.RequestedQuantity > shortage)
-                throw new DomainValidationException($"Requested quantity may not exceed the current shortage of {shortage:N3}.");
+                throw new DomainValidationException($"Requested quantity may not exceed the current shortage of {shortage.ToString("N3", CultureInfo.InvariantCulture)}.");
 
             if (await HasActiveRequestAsync(command.SourceProductionPlanId, command.RawMaterialId, cancellationToken))
                 throw new BusinessConflictException("An active purchase request already exists for this plan and raw material.");

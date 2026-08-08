@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using AI.Factory.Core.Domain;
 using AI.Factory.Core.MasterData;
@@ -102,7 +103,7 @@ public sealed class ProcurementService(AppDbContext dbContext, IAuditWriter audi
             var requested = purchaseRequest.Items.SingleOrDefault(x => x.RawMaterialId == item.RawMaterialId)
                 ?? throw new DomainValidationException("Every raw material must be part of the approved purchase request.");
             if (item.OrderedQuantity > requested.RequestedQuantity)
-                throw new DomainValidationException($"Ordered quantity may not exceed the requested quantity of {requested.RequestedQuantity:N3}.");
+                throw new DomainValidationException($"Ordered quantity may not exceed the requested quantity of {requested.RequestedQuantity.ToString("N3", CultureInfo.InvariantCulture)}.");
             return new IncomingPurchaseOrderItem { RawMaterialId = item.RawMaterialId, OrderedQuantity = item.OrderedQuantity, ReceivedQuantity = 0 };
         }).ToArray();
 
@@ -154,7 +155,7 @@ public sealed class ProcurementService(AppDbContext dbContext, IAuditWriter audi
         if (command.TargetReceivedQuantity < item.ReceivedQuantity)
             throw new DomainValidationException("Received quantity may not decrease.");
         if (command.TargetReceivedQuantity > item.OrderedQuantity)
-            throw new DomainValidationException($"Received quantity may not exceed the ordered quantity of {item.OrderedQuantity:N3}.");
+            throw new DomainValidationException($"Received quantity may not exceed the ordered quantity of {item.OrderedQuantity.ToString("N3", CultureInfo.InvariantCulture)}.");
 
         var now = Today();
         var delta = command.TargetReceivedQuantity - item.ReceivedQuantity;
