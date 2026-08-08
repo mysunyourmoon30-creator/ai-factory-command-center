@@ -143,11 +143,29 @@ checklist item 11); the shortage engine's client-side evaluation is required bec
 `MaterialAvailabilityRules` and `IOrderRiskCalculator` are C# the provider cannot translate, and
 pushing that math into SQL would break the locked "report views carry no time-relative math" rule.
 
+### Findings — full-system audit (G-series)
+
+Screen-by-screen audit of all ten routes as one connected system, against the business role that
+actually uses each one. `/` (D1-D6, E1-E4) and `/materials` (F1-F5) were audited in earlier passes
+and are closed; this series covers the other eight routes plus the defects that repeat across them.
+
+| # | Route | Finding | Severity | Status |
+|---|---|---|---|---|
+| G1 | *all write paths* | `UnauthorizedAccessException` was caught **nowhere** on the Blazor path. The API deliberately does not catch it because the named policy has already returned 403 — but components call services in-process with **no policy in front of them**, so `EnsureCanManage`'s throw is the only signal that an actor may not do this. A role revoked mid-session tore down the circuit with a generic error instead of saying why. Six pages. | High | **Closed (C1)** |
+| G2 | `/audit-administration` | `ToggleActiveAsync` had no `try`/`catch` at all — on the screen with the strongest privileges — and discarded `SetActiveAsync`'s `false` return, so deactivating an already-removed user reported success. | High | **Closed (C1)** |
+| G3 | `/orders/new` | `CustomerOrderService.ValidateAsync`'s duplicate check is read-then-write. The unique index on `OrderNumber` settles a genuine race, but the resulting `DbUpdateException` was unmapped: 500 on the API, dead circuit in the UI. Now translated to `BusinessConflictException` (409) with the same message the pre-check produces. | Medium | **Closed (C1)** |
+| G4 | `/orders/new` | No in-flight guard on submit. Double-clicking Create fired the command twice; the unique index prevented an actual duplicate, but the operator saw "Order number already exists" for an order they had just created. | Low | **Closed (C1)** |
+| G5 | `/api/admin/users` | The activation endpoint had no exception mapping, unlike every other write endpoint. Antiforgery *is* covered (`[FromForm]` makes `UseAntiforgery()` validate automatically) — the gap was exception-to-status only. | Low | **Closed (C1)** |
+
+Not a finding: `MaterialManagement.razor:171` keeps its narrower catch filter. `IMasterDataService`
+and `IMaterialRequirementQueryService` take no `ClaimsPrincipal actor` (the documented convention
+exception), so no `UnauthorizedAccessException` can originate there.
+
 ## Handoff
 
 - Current module: N/A — Day 13-14 (partial) and the PR/Incoming PO seed follow-up were deployment scripting, release verification, and documentation/data work, not a feature module
-- Current task: Post-roadmap quality pass, P4 (UX/UI polish) — closed. All four phases of the quality pass are done.
-- Status: Done — all four quality-pass phases, the A8 follow-up, and dark mode are closed
+- Current task: Full-system audit of all ten routes (G-series). C1 (cross-cutting error handling) closed; C2-C10 in progress.
+- Status: In progress — quality pass P1-P4, the A8 follow-up, dark mode, and the `/` and `/materials` audits (D/E/F series) are all closed
 - Remaining error: None known
 - Last commit: See `git log -1`
 - Next task: Nothing is queued. The only remaining thread is the user's own Day 14 portfolio work (Demo Video, CV, applications per §23.1), which is not a coding task; `demo/talking-points.md` is the recording script and `demo/prep-late-po.ps1` sets up the late-PO beat. Separately and unchanged: the user's own Day 14 portfolio work (Demo Video, CV, applications per §23.1) is not a coding task; `demo/talking-points.md` already exists as a recording script. Separately and unchanged: the user's own Day 14 portfolio work — Demo Video, updated CV, 30 job applications per §23.1 — is not a coding task; offer to help draft *content* if asked (a demo script already exists at `demo/talking-points.md`), but the applications/CV/video themselves are the user's. Everything the locked spec names through Day 14 is done: all 15 Required Tests, all 13 Release Verification items except IIS Local (environment finding, needs an elevated session on a machine with IIS), and the full locked canonical seed dataset (users/machines/materials/formulations/orders/plans/1 PR/1 Incoming PO).

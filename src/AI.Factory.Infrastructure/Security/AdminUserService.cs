@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using AI.Factory.Core.Production;
 using AI.Factory.Core.Security;
 using AI.Factory.Infrastructure.Identity;
 using AI.Factory.Infrastructure.Persistence;
@@ -51,7 +52,11 @@ public sealed class AdminUserService(
         var result = await userManager.UpdateAsync(user);
         if (!result.Succeeded)
         {
-            throw new InvalidOperationException(string.Join("; ", result.Errors.Select(x => x.Description)));
+            // Shaped like every other service's refusal so the write-path convention can map it
+            // (409, not 500) and the Blazor page can show it. It used to be an
+            // InvalidOperationException, which no caller caught: on the admin screen - the one
+            // with the strongest privileges - a failed update tore down the circuit.
+            throw new BusinessConflictException(string.Join("; ", result.Errors.Select(x => x.Description)));
         }
 
         await auditWriter.WriteAsync("Activate / Deactivate User", "User", user.Id, isActive ? "Activated" : "Deactivated", cancellationToken: cancellationToken);

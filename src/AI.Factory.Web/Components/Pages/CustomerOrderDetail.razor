@@ -41,7 +41,7 @@ else if (Order is not null)
         <Authorized Context="transitionAuthorization">
             @if (NextStatus is not null)
             {
-                <button class="btn btn-outline-primary mt-3" @onclick="TransitionAsync">Move to @NextStatus</button>
+                <button class="btn btn-outline-primary mt-3" disabled="@Submitting" @onclick="TransitionAsync">Move to @NextStatus</button>
             }
         </Authorized>
     </AuthorizeView>
@@ -54,6 +54,7 @@ else if (Order is not null)
 @code {
     [Parameter] public long? Id { get; set; }
     private bool Loading = true;
+    private bool Submitting;
     private string? Message;
     private StatusMessage.MessageKind MessageKind = StatusMessage.MessageKind.Info;
     private CustomerOrderDto? Order;
@@ -91,7 +92,13 @@ else if (Order is not null)
                 <div class="col-md-3"><label class="form-label">Delivery date</label><InputDate class="form-control" @bind-Value="Input.DeliveryDate" /></div>
                 <div class="col-md-3"><label class="form-label">Priority</label><InputSelect class="form-select" @bind-Value="Input.Priority"><option>Normal</option><option>High</option><option>Urgent</option></InputSelect></div>
             </div>
-            <button class="btn btn-primary mt-3" type="submit">@(create ? "Create" : "Save changes")</button>
+            @* Disabled while a submit is in flight. Double-clicking Create used to fire the command
+               twice; the unique index on OrderNumber meant the second attempt failed rather than
+               duplicating the order, but the operator saw "Order number already exists" for an
+               order they had just successfully created. *@
+            <button class="btn btn-primary mt-3" type="submit" disabled="@Submitting">
+                @(Submitting ? "Saving..." : create ? "Create" : "Save changes")
+            </button>
         </EditForm>
     </div>;
 
@@ -108,6 +115,8 @@ else if (Order is not null)
 
     private async Task SaveAsync()
     {
+        if (Submitting) return;
+        Submitting = true;
         try
         {
             if (Id is null)
@@ -120,19 +129,22 @@ else if (Order is not null)
             if (Order is not null) Input.RowVersion = Order.RowVersion;
             Message = "Customer order updated."; MessageKind = StatusMessage.MessageKind.Success;
         }
-        catch (Exception ex) when (ex is DomainValidationException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        finally { Submitting = false; }
     }
 
     private async Task TransitionAsync()
     {
-        if (Order is null || NextStatus is null) return;
+        if (Order is null || NextStatus is null || Submitting) return;
+        Submitting = true;
         try
         {
             Order = await Orders.TransitionAsync(Order.Id, new(NextStatus.Value, Order.RowVersion), await CurrentActorAsync());
             if (Order is not null) Input.RowVersion = Order.RowVersion;
             Message = $"Lifecycle moved to {Order?.LifecycleStatus}."; MessageKind = StatusMessage.MessageKind.Success;
         }
-        catch (Exception ex) when (ex is DomainValidationException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        finally { Submitting = false; }
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;

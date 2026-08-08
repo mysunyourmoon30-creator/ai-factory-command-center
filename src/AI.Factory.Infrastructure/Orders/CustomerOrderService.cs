@@ -2,6 +2,7 @@ using System.Security.Claims;
 using AI.Factory.Core.Domain;
 using AI.Factory.Core.MasterData;
 using AI.Factory.Core.Orders;
+using AI.Factory.Core.Production;
 using AI.Factory.Core.Security;
 using AI.Factory.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -62,7 +63,7 @@ public sealed class CustomerOrderService(
             UpdatedAt = now
         };
         dbContext.CustomerOrders.Add(entity);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await SaveWithConcurrencyAsync(cancellationToken);
         await auditWriter.WriteAsync("Create Customer Order", nameof(CustomerOrder), entity.Id, "Success", cancellationToken: cancellationToken);
         return (await GetAsync(entity.Id, cancellationToken))!;
     }
@@ -143,6 +144,12 @@ public sealed class CustomerOrderService(
     {
         try { await dbContext.SaveChangesAsync(cancellationToken); }
         catch (DbUpdateConcurrencyException) { throw new ConcurrencyConflictException("Customer order changed; reload before saving."); }
+        // ValidateAsync's duplicate check is read-then-write, so two callers submitting the same
+        // order number concurrently both pass it and the unique index on OrderNumber settles the
+        // race. Untranslated, the loser got a raw store exception - a 500 on the API and a dead
+        // circuit in the UI - rather than the message the pre-check would have produced.
+        // Must stay below the concurrency catch: DbUpdateConcurrencyException derives from this.
+        catch (DbUpdateException) { throw new BusinessConflictException("Order number already exists."); }
     }
 
     private static void EnsureRowVersion(CustomerOrder entity, byte[] rowVersion)

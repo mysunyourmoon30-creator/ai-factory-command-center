@@ -109,7 +109,7 @@ else
             await ReloadAsync();
             Selected = Plans.Single(x => x.Id == Selected.Id);
         }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task TransitionAsync()
@@ -122,7 +122,7 @@ else
             Plans = await ProductionPlans.ListAsync();
             if (Selected is not null) Selected = Plans.Single(x => x.Id == Selected.Id);
         }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;

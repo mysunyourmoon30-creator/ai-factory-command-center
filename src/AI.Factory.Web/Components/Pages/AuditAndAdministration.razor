@@ -106,11 +106,23 @@ else
 
     private async Task ToggleActiveAsync(DemoUser user)
     {
-        var actor = await CurrentActorAsync();
-        await AdminUsers.SetActiveAsync(actor, user.Id, !user.IsActive);
-        DemoUsers = await AdminUsers.ListAsync(actor);
-        Message = $"{user.Username} is now {(user.IsActive ? "inactive" : "active")}.";
-        MessageKind = StatusMessage.MessageKind.Success;
+        try
+        {
+            var actor = await CurrentActorAsync();
+            // The return value was being discarded, so deactivating a user who had since been
+            // removed reported success.
+            if (!await AdminUsers.SetActiveAsync(actor, user.Id, !user.IsActive))
+            {
+                Message = $"{user.Username} no longer exists."; MessageKind = StatusMessage.MessageKind.Error;
+                DemoUsers = await AdminUsers.ListAsync(actor);
+                return;
+            }
+
+            DemoUsers = await AdminUsers.ListAsync(actor);
+            Message = $"{user.Username} is now {(user.IsActive ? "inactive" : "active")}.";
+            MessageKind = StatusMessage.MessageKind.Success;
+        }
+        catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     // Carries the on-screen filter into the export so the CSV matches the table above it.

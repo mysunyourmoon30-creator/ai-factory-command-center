@@ -1,4 +1,5 @@
 using AI.Factory.Core.Copilot;
+using AI.Factory.Core.Production;
 using AI.Factory.Core.Security;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
@@ -66,15 +67,25 @@ public static class EndpointRegistrationExtensions
         adminUsers.MapGet("/", async (HttpContext context, IAdminUserService users, CancellationToken cancellationToken) =>
             Results.Ok(await users.ListAsync(context.User, cancellationToken)));
 
+        // [FromForm] means UseAntiforgery() validates the token for this endpoint automatically,
+        // so there is no explicit ValidateRequestAsync here as on the JSON write endpoints. The
+        // try/catch is still needed: SetActiveAsync surfaces an Identity update failure as a
+        // BusinessConflictException, which without mapping would leave as a 500.
         adminUsers.MapPost("/{userId:long}/activation", async (
             HttpContext context,
             long userId,
             [FromForm] SetActivationRequest request,
             IAdminUserService users,
             CancellationToken cancellationToken) =>
-            await users.SetActiveAsync(context.User, userId, request.IsActive, cancellationToken)
-                ? Results.NoContent()
-                : Results.NotFound());
+        {
+            try
+            {
+                return await users.SetActiveAsync(context.User, userId, request.IsActive, cancellationToken)
+                    ? Results.NoContent()
+                    : Results.NotFound();
+            }
+            catch (BusinessConflictException exception) { return Results.Conflict(new { error = exception.Message }); }
+        });
 
         endpoints.MapMasterDataEndpoints();
         endpoints.MapCustomerOrderEndpoints();

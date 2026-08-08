@@ -189,21 +189,21 @@ else
     {
         if (SelectedRequest is null) return;
         try { SelectedRequest = await ProcurementService.SubmitPurchaseRequestAsync(SelectedRequest.Id, new(SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request submitted for approval."; MessageKind = StatusMessage.MessageKind.Success; await ReloadAsync(); }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task ApproveAsync()
     {
         if (SelectedRequest is null) return;
         try { SelectedRequest = await ProcurementService.ApprovePurchaseRequestAsync(SelectedRequest.Id, new(SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request approved."; MessageKind = StatusMessage.MessageKind.Success; await ReloadAsync(); }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task RejectAsync()
     {
         if (SelectedRequest is null) return;
         try { SelectedRequest = await ProcurementService.RejectPurchaseRequestAsync(SelectedRequest.Id, new(RejectReason, SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request rejected."; MessageKind = StatusMessage.MessageKind.Success; await ReloadAsync(); }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task CreateIncomingOrderAsync()
@@ -216,7 +216,7 @@ else
             CreateInput = new CreateOrderForm();
             await ReloadAsync();
         }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task ReceiveAsync()
@@ -228,7 +228,7 @@ else
             Message = "Received quantity updated."; MessageKind = StatusMessage.MessageKind.Success;
             await ReloadAsync();
         }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
