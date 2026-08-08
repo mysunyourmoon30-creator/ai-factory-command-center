@@ -156,6 +156,49 @@ and are closed; this series covers the other eight routes plus the defects that 
 | G3 | `/orders/new` | `CustomerOrderService.ValidateAsync`'s duplicate check is read-then-write. The unique index on `OrderNumber` settles a genuine race, but the resulting `DbUpdateException` was unmapped: 500 on the API, dead circuit in the UI. Now translated to `BusinessConflictException` (409) with the same message the pre-check produces. | Medium | **Closed (C1)** |
 | G4 | `/orders/new` | No in-flight guard on submit. Double-clicking Create fired the command twice; the unique index prevented an actual duplicate, but the operator saw "Order number already exists" for an order they had just created. | Low | **Closed (C1)** |
 | G5 | `/api/admin/users` | The activation endpoint had no exception mapping, unlike every other write endpoint. Antiforgery *is* covered (`[FromForm]` makes `UseAntiforgery()` validate automatically) — the gap was exception-to-status only. | Low | **Closed (C1)** |
+| G6 | `/machine-monitoring` | The page returned **HTTP 500 and rendered nothing**. `OnInitializedAsync` awaited `_hubConnection.StartAsync()` unguarded, so any failure to reach the hub threw out of component initialization — even though the machine readings on the line above had already loaded. The page now renders its data either way, under a banner that says whether readings are live or last-known, with a Retry. | High | **Closed (C2)** |
+| G7 | `/machine-monitoring` | **Live push has never worked, and the previously recorded cause was wrong.** See the correction below. | High | **Open** |
+| G8 | `/machine-monitoring` | The connection badge was computed from the connection but nothing re-rendered when the connection changed, so it read "Connecting…" forever. `WithAutomaticReconnect()` was configured with no `Reconnecting`/`Reconnected`/`Closed` handlers. | Medium | **Closed (C2)** |
+| G9 | `/machine-monitoring` | `Running` and `Stopped` rendered as identical plain text inside a `<dl>`; the alert badge carried the only colour on the card. On the one screen whose requirement is "readable within seconds", the running state was the hardest thing to read. Now a coloured pill, with the card bordered by its computed alert status. | Medium | **Closed (C2)** |
+
+#### G7 — corrected root cause for the `/machine-monitoring` failure
+
+An earlier pass recorded this page's HTTP 500 as being caused by an untrusted development
+certificate, and the standing advice was to run `dotnet dev-certs https --trust`. **That diagnosis
+was wrong and that command would not have fixed it.**
+
+The server log shows the actual failure:
+
+```
+POST https://localhost:7166/hubs/machines/negotiate?negotiateVersion=1 - null 0
+HTTP POST /hubs/machines/negotiate responded 401
+```
+
+`401`, not a TLS error. `MachineHub` is `[Authorize]`, and the page builds its `HubConnection` with
+`HubConnectionBuilder` **inside the Blazor Server circuit** — that is, on the server, where there is
+no browser to supply the `AI.Factory.Auth` cookie. The loopback connection is therefore anonymous
+and is rejected before TLS trust ever becomes relevant.
+
+Confirmed in a real signed-in browser session on an established circuit (47 `_blazor` requests), not
+only during prerender: the page reports **Not live**, and the log shows two negotiate attempts —
+prerender and circuit — both 401. So this is not a local-environment artefact and not
+prerender-only: **the live-update feature has never functioned for any user, in any environment.**
+
+Deliberately left open rather than fixed inside C2, because the two candidate fixes differ in
+architecture, not just in size:
+
+- **Forward the auth cookie into the `HubConnection`** — keeps SignalR as the transport, which is
+  what `MachineHub`'s own XML comment assumes ("the Blazor client's
+  `HubConnectionBuilder.WithAutomaticReconnect()`"). Requires capturing the session cookie during
+  static SSR and holding it in circuit state, which is fragile and puts an auth cookie somewhere it
+  does not belong.
+- **Observe the notifier in-process** — the page already runs in the same process as
+  `SignalRMachineUpdateNotifier`, so it can subscribe to a plain C# event rather than dialing its
+  own server over HTTP. Smaller and more robust, but the SignalR round trip stops being how *this*
+  UI gets its updates (the hub itself stays, unchanged and still broadcasting).
+
+C2's fix stands either way: whichever is chosen, the page must still render when the channel is
+down.
 
 Not a finding: `MaterialManagement.razor:171` keeps its narrower catch filter. `IMasterDataService`
 and `IMaterialRequirementQueryService` take no `ClaimsPrincipal actor` (the documented convention

@@ -7,22 +7,56 @@
 @implements IAsyncDisposable
 
 <PageTitle>Machine Monitoring</PageTitle>
-<p class="text-muted">Live connection: <span class="badge @(IsConnected ? "text-bg-success" : "text-bg-secondary")">@(IsConnected ? "Connected" : "Connecting...")</span></p>
+
+@* The live channel is a supplement to the data, not a precondition for it. When it is down the
+   readings below are still real - just no longer arriving on their own - so the banner says which
+   of those two situations the operator is in rather than leaving them to guess from a stale clock. *@
+<div class="d-flex align-items-center gap-2 mb-3" role="status" aria-live="polite">
+    <span class="badge @LiveBadgeClass">@LiveLabel</span>
+    <span class="text-muted small">@LiveExplanation</span>
+    @if (Live == LiveState.Unavailable)
+    {
+        <button class="btn btn-sm btn-outline-secondary" @onclick="RetryLiveAsync" disabled="@Retrying">
+            @(Retrying ? "Retrying..." : "Retry")
+        </button>
+    }
+</div>
+
 <StatusMessage Message="@Message" Kind="@MessageKind" />
 
-<div class="row g-3">
+@* Machines stay in code order rather than sorting the worst one to the front: there are exactly
+   three of them and they never change, so an operator learns where each card sits. Attention is
+   drawn with a border instead, which does not move the card out from under the cursor mid-push. *@
+<div class="row g-3" aria-live="polite">
     @foreach (var machine in MachineList)
     {
         <div class="col-md-4">
-            <div class="card p-3">
-                <h2 class="h5">@machine.MachineCode - @machine.MachineName</h2>
-                <dl class="row mb-0">
-                    <dt class="col-6">Running Status</dt><dd class="col-6">@machine.RunningStatus</dd>
-                    <dt class="col-6">Temperature</dt><dd class="col-6">@machine.Temperature.ToString("N1", CultureInfo.InvariantCulture)&deg;C</dd>
-                    <dt class="col-6">Speed</dt><dd class="col-6">@machine.Speed.ToString("N1", CultureInfo.InvariantCulture)</dd>
-                    <dt class="col-6">Alert</dt><dd class="col-6"><span class="badge @AlertClass(machine.AlertStatus)">@machine.AlertStatus</span></dd>
-                    <dt class="col-6">Last Updated</dt><dd class="col-6">@machine.LastUpdated.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</dd>
-                </dl>
+            <div class="card h-100 p-3 @CardClass(machine.AlertStatus)">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                    <h2 class="h5 mb-0">@machine.MachineCode</h2>
+                    <StatusBadge Risk="machine.AlertStatus" />
+                </div>
+                <div class="text-muted small mb-3">@machine.MachineName</div>
+
+                <div class="mb-3">
+                    <span class="badge @RunningClass(machine.RunningStatus) fs-6">@machine.RunningStatus</span>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <div class="text-muted" style="font-size: var(--af-text-xs);">Temperature</div>
+                        <div class="fs-4">@machine.Temperature.ToString("N1", CultureInfo.InvariantCulture)&deg;C</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted" style="font-size: var(--af-text-xs);">Speed</div>
+                        <div class="fs-4">@machine.Speed.ToString("N1", CultureInfo.InvariantCulture)</div>
+                    </div>
+                </div>
+
+                <div class="text-muted mt-auto" style="font-size: var(--af-text-xs);">
+                    Last updated @machine.LastUpdated.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
+                </div>
+
                 <AuthorizeView Policy="@PolicyNames.CanUpdateMachineSimulator">
                     <Authorized Context="simulateAuthorization">
                         <button class="btn btn-sm btn-outline-secondary mt-2" @onclick="() => SelectForSimulate(machine)">Simulate Update</button>
@@ -33,6 +67,11 @@
     }
 </div>
 
+@if (MachineList.Count == 0)
+{
+    <EmptyState Message="No machine is registered." Hint="Run the master-data seeder to create the three demo machines." />
+}
+
 @if (SelectedForSimulate is not null)
 {
     <h2 class="h4 mt-4">Simulate Update — @SelectedForSimulate.MachineCode</h2>
@@ -40,14 +79,14 @@
         <DataAnnotationsValidator /><ValidationSummary />
         <div class="row g-2">
             <div class="col-md-3">
-                <label class="form-label">Running status</label>
-                <InputSelect class="form-select" @bind-Value="Input.RunningStatus">
+                <label class="form-label" for="simulate-status">Running status</label>
+                <InputSelect id="simulate-status" class="form-select" @bind-Value="Input.RunningStatus">
                     <option value="Running">Running</option>
                     <option value="Stopped">Stopped</option>
                 </InputSelect>
             </div>
-            <div class="col-md-3"><label class="form-label">Temperature (°C)</label><InputNumber class="form-control" @bind-Value="Input.Temperature" /></div>
-            <div class="col-md-3"><label class="form-label">Speed</label><InputNumber class="form-control" @bind-Value="Input.Speed" /></div>
+            <div class="col-md-3"><label class="form-label" for="simulate-temperature">Temperature (°C)</label><InputNumber id="simulate-temperature" class="form-control" @bind-Value="Input.Temperature" /></div>
+            <div class="col-md-3"><label class="form-label" for="simulate-speed">Speed</label><InputNumber id="simulate-speed" class="form-control" @bind-Value="Input.Speed" /></div>
         </div>
         <button class="btn btn-primary mt-2" type="submit">Update</button>
         <button class="btn btn-outline-secondary mt-2" type="button" @onclick="() => SelectedForSimulate = null">Cancel</button>
@@ -61,25 +100,115 @@
     private string? Message;
     private StatusMessage.MessageKind MessageKind = StatusMessage.MessageKind.Info;
     private HubConnection? _hubConnection;
-    private bool IsConnected => _hubConnection?.State == HubConnectionState.Connected;
+    private bool Retrying;
+
+    private enum LiveState { Connecting, Live, Reconnecting, Unavailable }
+    private LiveState Live = LiveState.Connecting;
 
     protected override async Task OnInitializedAsync()
     {
         await ReloadAsync();
+        await ConnectAsync();
+    }
 
-        _hubConnection = new HubConnectionBuilder()
+    /// <summary>
+    /// Starting the hub used to be awaited unguarded, so any failure to reach it threw straight out
+    /// of component initialization and the whole page returned HTTP 500 — even though the machine
+    /// readings on the line above had already loaded successfully. An untrusted development
+    /// certificate is what trips it on this machine; a reverse proxy that will not upgrade
+    /// WebSockets does exactly the same thing in production. The page must render its data whether
+    /// or not the live channel comes up.
+    /// </summary>
+    private async Task ConnectAsync()
+    {
+        var connection = new HubConnectionBuilder()
             .WithUrl(Navigation.ToAbsoluteUri("/hubs/machines"))
             .WithAutomaticReconnect()
             .Build();
 
-        _hubConnection.On<MachineDto>("MachineUpdated", updated =>
+        connection.On<MachineDto>("MachineUpdated", updated =>
         {
             MachineList = MachineList.Select(x => x.Id == updated.Id ? updated : x).ToArray();
-            InvokeAsync(StateHasChanged);
+            return InvokeAsync(StateHasChanged);
         });
 
-        await _hubConnection.StartAsync();
+        // Without these the badge never moved off its initial value: it was computed from the
+        // connection but nothing re-rendered when the connection changed, so a page that had been
+        // live for an hour still read "Connecting...".
+        connection.Reconnecting += _ =>
+        {
+            Live = LiveState.Reconnecting;
+            return InvokeAsync(StateHasChanged);
+        };
+
+        connection.Reconnected += _ => InvokeAsync(async () =>
+        {
+            // Values may have moved while the channel was down, and no push was queued for us.
+            try { await ReloadAsync(); } catch (Exception) { /* keep the last known readings */ }
+            Live = LiveState.Live;
+            StateHasChanged();
+        });
+
+        // Closed also fires when we dispose the connection ourselves, including the disposal inside
+        // Retry — without the identity check that late event would flip a freshly connected page
+        // back to "Not live".
+        connection.Closed += _ =>
+        {
+            if (!ReferenceEquals(_hubConnection, connection)) return Task.CompletedTask;
+            Live = LiveState.Unavailable;
+            return InvokeAsync(StateHasChanged);
+        };
+
+        _hubConnection = connection;
+        try
+        {
+            await connection.StartAsync();
+            Live = LiveState.Live;
+        }
+        catch (Exception)
+        {
+            Live = LiveState.Unavailable;
+        }
     }
+
+    private async Task RetryLiveAsync()
+    {
+        if (Retrying) return;
+        Retrying = true;
+        try
+        {
+            var previous = _hubConnection;
+            _hubConnection = null;
+            if (previous is not null) await previous.DisposeAsync();
+            Live = LiveState.Connecting;
+            await ReloadAsync();
+            await ConnectAsync();
+        }
+        finally { Retrying = false; }
+    }
+
+    private string LiveLabel => Live switch
+    {
+        LiveState.Live => "Live",
+        LiveState.Reconnecting => "Reconnecting",
+        LiveState.Unavailable => "Not live",
+        _ => "Connecting"
+    };
+
+    private string LiveBadgeClass => Live switch
+    {
+        LiveState.Live => "text-bg-success",
+        LiveState.Unavailable => "text-bg-warning",
+        _ => "text-bg-secondary"
+    };
+
+    private string LiveExplanation => Live switch
+    {
+        LiveState.Live => "Readings update on their own as machines report.",
+        LiveState.Reconnecting => "Reconnecting — readings below may be a few seconds behind.",
+        LiveState.Unavailable => "Showing the last known readings. They will not update until the live channel is back.",
+        _ => "Opening the live channel."
+    };
 
     private async Task ReloadAsync() => MachineList = await Machines.ListAsync();
 
@@ -108,11 +237,17 @@
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
 
-    private static string AlertClass(RiskStatus risk) => risk switch
+    // Stopped is amber rather than red because the locked Machine Alert Rule already grades a
+    // stopped machine as Warning, never Critical; the alert badge stays the single source of
+    // severity and this pill only answers "is it turning".
+    private static string RunningClass(MachineRunningStatus status) =>
+        status == MachineRunningStatus.Running ? "text-bg-success" : "text-bg-warning";
+
+    private static string CardClass(RiskStatus risk) => risk switch
     {
-        RiskStatus.Critical => "text-bg-danger",
-        RiskStatus.Warning => "text-bg-warning",
-        _ => "text-bg-success"
+        RiskStatus.Critical => "border-danger border-2",
+        RiskStatus.Warning => "border-warning",
+        _ => string.Empty
     };
 
     private sealed class SimulateInput
