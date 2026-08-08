@@ -3,31 +3,36 @@
 @inject IProcurementService ProcurementService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject TimeProvider TimeProvider
+@inject IJSRuntime JS
 
 <PageTitle>Procurement</PageTitle>
 <StatusMessage Message="@Message" Kind="@MessageKind" />
 
 <ul class="nav nav-tabs mb-3" role="tablist">
-    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "requests")" class="nav-link @(Tab == "requests" ? "active" : null)" @onclick='() => Tab = "requests"'>Purchase Request Approval</button></li>
-    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "incoming")" class="nav-link @(Tab == "incoming" ? "active" : null)" @onclick='() => Tab = "incoming"'>Incoming Purchase Order</button></li>
+    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "requests")" class="nav-link @(Tab == "requests" ? "active" : null)" @onclick='() => SwitchTabAsync("requests")'>Purchase Request Approval</button></li>
+    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "incoming")" class="nav-link @(Tab == "incoming" ? "active" : null)" @onclick='() => SwitchTabAsync("incoming")'>Incoming Purchase Order</button></li>
 </ul>
 
 @if (Tab == "requests")
 {
-    @if (Requests.Count == 0) { <div class="alert alert-light">No purchase request has been raised.</div> }
+    @if (Requests.Count == 0)
+    {
+        <EmptyState Message="No purchase request has been raised."
+                    Hint="Requests are raised from the Material Shortage screen, against a material that is actually short." />
+    }
     else
     {
         <div class="table-responsive">
             <table class="table table-striped align-middle">
                 <thead><tr><th scope="col">Request</th><th scope="col">Plan</th><th scope="col">Status</th><th scope="col">Requested</th><th scope="col">Approved</th><th scope="col"></th></tr></thead>
                 <tbody>@foreach (var request in Requests) {
-                    <tr>
+                    <tr class="@(SelectedRequest?.Id == request.Id ? "table-active" : null)">
                         <td>@request.RequestNumber</td>
                         <td>@request.PlanNumber</td>
                         <td><span class="badge @StatusClass(request.Status)">@request.Status</span></td>
                         <td>@request.RequestedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
                         <td>@(request.ApprovedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
-                        <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectRequest(request)">Detail</button></td>
+                        <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectRequestAsync(request)">Detail</button></td>
                     </tr>
                 }</tbody>
             </table>
@@ -36,7 +41,7 @@
 
     @if (SelectedRequest is not null)
     {
-        <h2 class="h4 mt-4">@SelectedRequest.RequestNumber Detail</h2>
+        <h2 class="h4 mt-4" id="procurement-detail">@SelectedRequest.RequestNumber Detail</h2>
         <div class="table-responsive">
             <table class="table table-sm"><thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Requested Quantity</th><th scope="col">Expected Date</th></tr></thead>
                 <tbody>@foreach (var item in SelectedRequest.Items) { <tr><td>@item.RawMaterialCode</td><td class="text-end">@item.RequestedQuantity.ToString("N3", CultureInfo.InvariantCulture)</td><td>@item.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
@@ -46,18 +51,31 @@
         @if (SelectedRequest.Status == PurchaseRequestStatus.Draft)
         {
             <AuthorizeView Policy="@PolicyNames.CanCreatePurchaseRequest">
-                <Authorized Context="submitAuthorization"><button class="btn btn-primary" @onclick="SubmitAsync">Submit for approval</button></Authorized>
+                <Authorized Context="submitAuthorization"><button class="btn btn-primary" disabled="@Submitting" @onclick="SubmitAsync">Submit for approval</button></Authorized>
             </AuthorizeView>
         }
         @if (SelectedRequest.Status == PurchaseRequestStatus.PendingApproval)
         {
             <AuthorizeView Policy="@PolicyNames.CanApprovePurchaseRequest">
                 <Authorized Context="approveAuthorization">
-                    <div class="d-flex gap-2 align-items-start flex-wrap">
-                        <button class="btn btn-success" @onclick="ApproveAsync">Approve</button>
+                    <div class="d-flex gap-3 align-items-start flex-wrap">
+                        <button class="btn btn-success" disabled="@Submitting" @onclick="ApproveAsync">Approve</button>
                         <div>
-                            <input class="form-control" style="max-width:20rem" placeholder="Rejection reason" @bind="RejectReason" />
-                            <button class="btn btn-outline-danger mt-1" @onclick="RejectAsync">Reject</button>
+                            <label class="form-label" for="reject-reason">Rejection reason</label>
+                            <input id="reject-reason" class="form-control" style="max-width:20rem" placeholder="Why is this being rejected?" @bind="RejectReason" />
+                            @* Reject is terminal - a rejected request cannot be resubmitted - and it
+                               sat one tab-stop from a green Approve. Two steps, so the destructive
+                               one is never the result of a single stray click. *@
+                            @if (ConfirmingReject)
+                            {
+                                <div class="alert alert-warning mt-2 mb-2 py-2">Rejecting @SelectedRequest.RequestNumber is final; it cannot be resubmitted.</div>
+                                <button class="btn btn-danger" disabled="@Submitting" @onclick="RejectAsync">Confirm reject</button>
+                                <button class="btn btn-outline-secondary" @onclick="() => ConfirmingReject = false">Cancel</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-outline-danger mt-1" @onclick="() => ConfirmingReject = true">Reject</button>
+                            }
                         </div>
                     </div>
                 </Authorized>
@@ -74,27 +92,36 @@ else
             <div class="col-6 col-md-auto"><KpiCard Label="Open" Value="@IncomingOrders.Count(x => x.Status == IncomingPurchaseOrderStatus.Open)" Icon="procurement" /></div>
             <div class="col-6 col-md-auto"><KpiCard Label="Partial" Value="@IncomingOrders.Count(x => x.Status == IncomingPurchaseOrderStatus.Partial)" Icon="procurement" /></div>
             <div class="col-6 col-md-auto"><KpiCard Label="Received" Value="@IncomingOrders.Count(x => x.Status == IncomingPurchaseOrderStatus.Received)" Icon="procurement" Tone="KpiCard.KpiTone.Success" /></div>
-            <div class="col-auto"><div class="card p-2 border-warning"><div class="text-muted small">Late</div><div class="fs-5">@IncomingOrders.Count(x => x.IsLate)</div></div></div>
+            @* Was the one hand-rolled tile left in a row of KpiCards. *@
+            <div class="col-6 col-md-auto"><KpiCard Label="Late" Value="@LateCount" Icon="shortage" Tone="@(LateCount > 0 ? KpiCard.KpiTone.Danger : KpiCard.KpiTone.Neutral)" /></div>
         </div>
-        <div class="d-flex gap-2 align-items-end mb-2">
+        <div class="d-flex gap-2 align-items-end mb-2 flex-wrap">
             <div class="form-check"><input class="form-check-input" type="checkbox" id="lateOnly" @bind="LateOnly" /><label class="form-check-label" for="lateOnly">Late only</label></div>
             <a class="btn btn-outline-secondary" href="/api/reports/purchase-order-status/export.csv" target="_blank" rel="noopener noreferrer">Export CSV</a>
         </div>
     }
-    @if (FilteredIncomingOrders.Count == 0) { <div class="alert alert-light">No incoming purchase order has been recorded.</div> }
+    @if (IncomingOrders.Count == 0)
+    {
+        <EmptyState Message="No incoming purchase order has been recorded."
+                    Hint="An incoming order is raised below, from an Approved purchase request." />
+    }
+    else if (FilteredIncomingOrders.Count == 0)
+    {
+        <EmptyState Message="No incoming purchase order is late." Hint="Clear &quot;Late only&quot; to see every order." />
+    }
     else
     {
         <div class="table-responsive">
             <table class="table table-striped align-middle">
                 <thead><tr><th scope="col">Purchase Order</th><th scope="col">Request</th><th scope="col">Expected</th><th scope="col">Received</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
                 <tbody>@foreach (var order in FilteredIncomingOrders) {
-                    <tr>
+                    <tr class="@RowClass(order)">
                         <td>@order.PurchaseOrderNumber</td>
                         <td>@order.RequestNumber</td>
                         <td>@order.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
                         <td>@(order.ReceivedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
                         <td><span class="badge @StatusClass(order.Status)">@order.Status</span> @if (order.IsLate) { <span class="badge text-bg-warning ms-1">Late @order.DelayDays d</span> }</td>
-                        <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectOrder(order)">Detail</button></td>
+                        <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectOrderAsync(order)">Detail</button></td>
                     </tr>
                 }</tbody>
             </table>
@@ -103,10 +130,10 @@ else
 
     @if (SelectedOrder is not null)
     {
-        <h2 class="h4 mt-4">@SelectedOrder.PurchaseOrderNumber Detail</h2>
+        <h2 class="h4 mt-4" id="procurement-detail">@SelectedOrder.PurchaseOrderNumber Detail</h2>
         <div class="table-responsive">
-            <table class="table table-sm"><thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Ordered</th><th scope="col" class="text-end">Received</th></tr></thead>
-                <tbody>@foreach (var item in SelectedOrder.Items) { <tr><td>@item.RawMaterialCode - @item.RawMaterialName</td><td class="text-end">@item.OrderedQuantity.ToString("N3", CultureInfo.InvariantCulture) @item.Unit</td><td class="text-end">@item.ReceivedQuantity.ToString("N3", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
+            <table class="table table-sm"><thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Ordered</th><th scope="col" class="text-end">Received</th><th scope="col" class="text-end">Outstanding</th></tr></thead>
+                <tbody>@foreach (var item in SelectedOrder.Items) { <tr><td>@item.RawMaterialCode - @item.RawMaterialName</td><td class="text-end">@item.OrderedQuantity.ToString("N3", CultureInfo.InvariantCulture) @item.Unit</td><td class="text-end">@item.ReceivedQuantity.ToString("N3", CultureInfo.InvariantCulture)</td><td class="text-end">@((item.OrderedQuantity - item.ReceivedQuantity).ToString("N3", CultureInfo.InvariantCulture))</td></tr> }</tbody></table>
         </div>
 
         <AuthorizeView Policy="@PolicyNames.CanRecordIncomingPurchaseOrder">
@@ -115,10 +142,22 @@ else
                 <EditForm Model="ReceiveInput" OnValidSubmit="ReceiveAsync">
                     <DataAnnotationsValidator /><ValidationSummary />
                     <div class="row g-2">
-                        <div class="col-md-4"><label class="form-label">Raw material</label><InputSelect class="form-select" @bind-Value="ReceiveInput.RawMaterialId"><option value="0">Select material</option>@foreach (var item in SelectedOrder.Items) { <option value="@item.RawMaterialId">@item.RawMaterialCode (ordered @item.OrderedQuantity.ToString("N3", CultureInfo.InvariantCulture))</option> }</InputSelect></div>
-                        <div class="col-md-4"><label class="form-label">Cumulative received quantity</label><InputNumber class="form-control" @bind-Value="ReceiveInput.TargetReceivedQuantity" /></div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="receive-material">Raw material</label>
+                            @* Value/ValueChanged rather than @bind-Value so choosing a material can
+                               re-seed the quantity below it - see OnReceiveMaterialSelected. *@
+                            <InputSelect id="receive-material" class="form-select" Value="ReceiveInput.RawMaterialId" ValueChanged="@((long value) => OnReceiveMaterialSelected(value))" ValueExpression="() => ReceiveInput.RawMaterialId">
+                                <option value="0">Select material</option>
+                                @foreach (var item in SelectedOrder.Items) { <option value="@item.RawMaterialId">@item.RawMaterialCode (ordered @item.OrderedQuantity.ToString("N3", CultureInfo.InvariantCulture))</option> }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="receive-quantity">Cumulative received quantity</label>
+                            <InputNumber id="receive-quantity" class="form-control" @bind-Value="ReceiveInput.TargetReceivedQuantity" />
+                            <div class="form-text">@ReceiveHint</div>
+                        </div>
                     </div>
-                    <button class="btn btn-primary mt-2" type="submit">Update received quantity</button>
+                    <button class="btn btn-primary mt-2" type="submit" disabled="@Submitting">@(Submitting ? "Updating..." : "Update received quantity")</button>
                 </EditForm>
             </Authorized>
         </AuthorizeView>
@@ -126,21 +165,26 @@ else
 
     <AuthorizeView Policy="@PolicyNames.CanRecordIncomingPurchaseOrder">
         <Authorized Context="createAuthorization">
-            <h2 class="h4 mt-4">Create Incoming Purchase Order</h2>
-            @if (EligibleRequests.Count == 0) { <div class="alert alert-light">No Approved purchase request is awaiting an incoming purchase order.</div> }
+            <hr class="my-4" />
+            <h2 class="h4">Create Incoming Purchase Order</h2>
+            @if (EligibleRequests.Count == 0)
+            {
+                <EmptyState Message="No Approved purchase request is awaiting an incoming purchase order."
+                            Hint="Approve a request on the other tab first — each approved request takes exactly one incoming order." />
+            }
             else
             {
                 <div class="row g-2">
-                    <div class="col-md-4"><label class="form-label">Approved purchase request</label><InputSelect class="form-select" Value="CreateInput.PurchaseRequestId" ValueChanged="@((long v) => OnPurchaseRequestSelected(v))" ValueExpression="() => CreateInput.PurchaseRequestId"><option value="0">Select request</option>@foreach (var request in EligibleRequests) { <option value="@request.Id">@request.RequestNumber</option> }</InputSelect></div>
-                    <div class="col-md-4"><label class="form-label">Expected date</label><InputDate class="form-control" @bind-Value="CreateInput.ExpectedDate" /></div>
+                    <div class="col-md-4"><label class="form-label" for="create-request">Approved purchase request</label><InputSelect id="create-request" class="form-select" Value="CreateInput.PurchaseRequestId" ValueChanged="@((long v) => OnPurchaseRequestSelected(v))" ValueExpression="() => CreateInput.PurchaseRequestId"><option value="0">Select request</option>@foreach (var request in EligibleRequests) { <option value="@request.Id">@request.RequestNumber</option> }</InputSelect></div>
+                    <div class="col-md-4"><label class="form-label" for="create-expected">Expected date</label><InputDate id="create-expected" class="form-control" @bind-Value="CreateInput.ExpectedDate" /></div>
                 </div>
                 @if (CreateInput.Items.Count > 0)
                 {
                     <div class="table-responsive">
-                        <table class="table table-sm mt-2"><thead><tr><th scope="col">Raw Material</th><th scope="col">Requested</th><th scope="col">Ordered Quantity</th></tr></thead>
-                            <tbody>@foreach (var item in CreateInput.Items) { <tr><td>@item.RawMaterialCode</td><td>@item.RequestedQuantity.ToString("N3", CultureInfo.InvariantCulture)</td><td style="max-width:10rem"><InputNumber class="form-control" @bind-Value="item.OrderedQuantity" /></td></tr> }</tbody></table>
+                        <table class="table table-sm mt-2"><thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Requested</th><th scope="col">Ordered Quantity</th></tr></thead>
+                            <tbody>@foreach (var item in CreateInput.Items) { <tr><td>@item.RawMaterialCode</td><td class="text-end">@item.RequestedQuantity.ToString("N3", CultureInfo.InvariantCulture)</td><td style="max-width:10rem"><InputNumber class="form-control" @bind-Value="item.OrderedQuantity" aria-label="@($"Ordered quantity for {item.RawMaterialCode}")" /></td></tr> }</tbody></table>
                     </div>
-                    <button class="btn btn-primary" @onclick="CreateIncomingOrderAsync">Create incoming purchase order</button>
+                    <button class="btn btn-primary" disabled="@Submitting" @onclick="CreateIncomingOrderAsync">@(Submitting ? "Creating..." : "Create incoming purchase order")</button>
                 }
             }
         </Authorized>
@@ -154,6 +198,9 @@ else
     private IReadOnlyCollection<PurchaseRequestDto> Requests = [];
     private IReadOnlyCollection<IncomingPurchaseOrderDto> IncomingOrders = [];
     private bool LateOnly;
+    private bool Submitting;
+    private bool ConfirmingReject;
+    private int LateCount => IncomingOrders.Count(x => x.IsLate);
     private IReadOnlyCollection<IncomingPurchaseOrderDto> FilteredIncomingOrders => LateOnly ? IncomingOrders.Where(x => x.IsLate).ToArray() : IncomingOrders;
     private PurchaseRequestDto? SelectedRequest;
     private IncomingPurchaseOrderDto? SelectedOrder;
@@ -162,18 +209,89 @@ else
     private CreateOrderForm CreateInput = new();
     private IReadOnlyCollection<PurchaseRequestDto> EligibleRequests => Requests.Where(x => x.Status == PurchaseRequestStatus.Approved && !x.HasIncomingPurchaseOrder).ToArray();
 
-    protected override async Task OnInitializedAsync() => await ReloadAsync();
+    protected override async Task OnInitializedAsync() => await LoadTabAsync();
 
-    private async Task ReloadAsync()
+    private async Task SwitchTabAsync(string tab)
     {
-        Requests = await ProcurementService.ListPurchaseRequestsAsync();
+        if (Tab == tab) return;
+        Tab = tab;
+        Message = null;
+        ConfirmingReject = false;
+        await LoadTabAsync();
+    }
+
+    /// <summary>
+    /// Only the visible tab's data is fetched, the same fix already made on Material Management:
+    /// both datasets used to load on every page open though one of them was never rendered, each
+    /// with a two-deep include chain.
+    ///
+    /// The Incoming tab genuinely needs both, because its "Create Incoming Purchase Order" form
+    /// picks from the Approved purchase requests. That is a real dependency, not an oversight.
+    /// </summary>
+    private async Task LoadTabAsync()
+    {
+        if (Tab == "requests")
+        {
+            Requests = await ProcurementService.ListPurchaseRequestsAsync();
+            if (SelectedRequest is not null) SelectedRequest = Requests.SingleOrDefault(x => x.Id == SelectedRequest.Id);
+            return;
+        }
+
         IncomingOrders = await ProcurementService.ListIncomingPurchaseOrdersAsync();
-        if (SelectedRequest is not null) SelectedRequest = Requests.SingleOrDefault(x => x.Id == SelectedRequest.Id);
+        Requests = await ProcurementService.ListPurchaseRequestsAsync();
         if (SelectedOrder is not null) SelectedOrder = IncomingOrders.SingleOrDefault(x => x.Id == SelectedOrder.Id);
     }
 
-    private void SelectRequest(PurchaseRequestDto request) { SelectedRequest = request; RejectReason = ""; }
-    private void SelectOrder(IncomingPurchaseOrderDto order) { SelectedOrder = order; ReceiveInput = new ReceiveForm { TargetReceivedQuantity = order.Items.FirstOrDefault()?.ReceivedQuantity ?? 0 }; }
+    private string? RowClass(IncomingPurchaseOrderDto order) =>
+        SelectedOrder?.Id == order.Id ? "table-active" : null;
+
+    private async Task SelectRequestAsync(PurchaseRequestDto request)
+    {
+        SelectedRequest = request;
+        RejectReason = "";
+        ConfirmingReject = false;
+        await ScrollToDetailAsync();
+    }
+
+    private async Task SelectOrderAsync(IncomingPurchaseOrderDto order)
+    {
+        SelectedOrder = order;
+        ReceiveInput = new ReceiveForm();
+        // Only pre-select when there is no ambiguity about which material is meant.
+        if (order.Items.Count == 1) OnReceiveMaterialSelected(order.Items.First().RawMaterialId);
+        await ScrollToDetailAsync();
+    }
+
+    /// <summary>
+    /// The receipt contract is cumulative: this box is the new running total for the chosen
+    /// material, not an increment. It used to be seeded from Items.First() while the material
+    /// select sat at "Select material", so the figure on screen belonged to a material the operator
+    /// had not chosen — and stayed there when they chose a different one. Submitting that pairing
+    /// would have written one material's total against another.
+    /// </summary>
+    private void OnReceiveMaterialSelected(long rawMaterialId)
+    {
+        ReceiveInput.RawMaterialId = rawMaterialId;
+        var item = SelectedOrder?.Items.SingleOrDefault(x => x.RawMaterialId == rawMaterialId);
+        ReceiveInput.TargetReceivedQuantity = item?.ReceivedQuantity ?? 0;
+    }
+
+    private string ReceiveHint
+    {
+        get
+        {
+            var item = SelectedOrder?.Items.SingleOrDefault(x => x.RawMaterialId == ReceiveInput.RawMaterialId);
+            return item is null
+                ? "Choose a material first. This is the running total received, not the amount in this delivery."
+                : $"Running total, not this delivery. {item.RawMaterialCode} has {item.ReceivedQuantity.ToString("N3", CultureInfo.InvariantCulture)} of {item.OrderedQuantity.ToString("N3", CultureInfo.InvariantCulture)} {item.Unit} recorded so far.";
+        }
+    }
+
+    private async Task ScrollToDetailAsync()
+    {
+        try { await JS.InvokeVoidAsync("aiFactoryScrollIntoView", "procurement-detail"); }
+        catch (JSException) { /* the panel is open and reachable by scrolling */ }
+    }
 
     private void OnPurchaseRequestSelected(long purchaseRequestId)
     {
@@ -187,48 +305,59 @@ else
 
     private async Task SubmitAsync()
     {
-        if (SelectedRequest is null) return;
-        try { SelectedRequest = await ProcurementService.SubmitPurchaseRequestAsync(SelectedRequest.Id, new(SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request submitted for approval."; MessageKind = StatusMessage.MessageKind.Success; await ReloadAsync(); }
+        if (SelectedRequest is null || Submitting) return;
+        Submitting = true;
+        try { SelectedRequest = await ProcurementService.SubmitPurchaseRequestAsync(SelectedRequest.Id, new(SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request submitted for approval."; MessageKind = StatusMessage.MessageKind.Success; await LoadTabAsync(); }
         catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        finally { Submitting = false; }
     }
 
     private async Task ApproveAsync()
     {
-        if (SelectedRequest is null) return;
-        try { SelectedRequest = await ProcurementService.ApprovePurchaseRequestAsync(SelectedRequest.Id, new(SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request approved."; MessageKind = StatusMessage.MessageKind.Success; await ReloadAsync(); }
+        if (SelectedRequest is null || Submitting) return;
+        Submitting = true;
+        try { SelectedRequest = await ProcurementService.ApprovePurchaseRequestAsync(SelectedRequest.Id, new(SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request approved."; MessageKind = StatusMessage.MessageKind.Success; await LoadTabAsync(); }
         catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        finally { Submitting = false; }
     }
 
     private async Task RejectAsync()
     {
-        if (SelectedRequest is null) return;
-        try { SelectedRequest = await ProcurementService.RejectPurchaseRequestAsync(SelectedRequest.Id, new(RejectReason, SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request rejected."; MessageKind = StatusMessage.MessageKind.Success; await ReloadAsync(); }
+        if (SelectedRequest is null || Submitting) return;
+        Submitting = true;
+        try { SelectedRequest = await ProcurementService.RejectPurchaseRequestAsync(SelectedRequest.Id, new(RejectReason, SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request rejected."; MessageKind = StatusMessage.MessageKind.Success; ConfirmingReject = false; await LoadTabAsync(); }
         catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        finally { Submitting = false; }
     }
 
     private async Task CreateIncomingOrderAsync()
     {
+        if (Submitting) return;
+        Submitting = true;
         try
         {
             var items = CreateInput.Items.Select(x => new IncomingPurchaseOrderItemCommand(x.RawMaterialId, x.OrderedQuantity)).ToArray();
             SelectedOrder = await ProcurementService.CreateIncomingPurchaseOrderAsync(new(CreateInput.PurchaseRequestId, CreateInput.ExpectedDate, items), await CurrentActorAsync());
             Message = $"Incoming purchase order {SelectedOrder.PurchaseOrderNumber} created."; MessageKind = StatusMessage.MessageKind.Success;
             CreateInput = new CreateOrderForm();
-            await ReloadAsync();
+            await LoadTabAsync();
         }
         catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        finally { Submitting = false; }
     }
 
     private async Task ReceiveAsync()
     {
-        if (SelectedOrder is null) return;
+        if (SelectedOrder is null || Submitting) return;
+        Submitting = true;
         try
         {
             SelectedOrder = await ProcurementService.SetReceivedQuantityAsync(SelectedOrder.Id, new(ReceiveInput.RawMaterialId, ReceiveInput.TargetReceivedQuantity, SelectedOrder.RowVersion), await CurrentActorAsync());
             Message = "Received quantity updated."; MessageKind = StatusMessage.MessageKind.Success;
-            await ReloadAsync();
+            await LoadTabAsync();
         }
         catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        finally { Submitting = false; }
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
