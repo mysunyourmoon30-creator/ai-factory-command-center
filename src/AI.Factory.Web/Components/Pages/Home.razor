@@ -72,8 +72,13 @@ else if (Alerts.Count == 0) { <EmptyState Message="No active alert." Hint="Alert
 else
 {
     <div class="table-responsive">
-        <table class="table table-sm"><thead><tr><th scope="col">Type</th><th scope="col">Severity</th><th scope="col">Entity</th><th scope="col">Message</th><th scope="col">Created</th></tr></thead>
-            <tbody>@foreach (var alert in Alerts) { <tr><td>@alert.AlertType</td><td><StatusBadge Severity="alert.Severity" /></td><td>@alert.EntityName #@alert.EntityId</td><td>@alert.Message</td><td>@alert.CreatedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
+        @* No Entity column. It rendered the loose reference raw - "RawMaterial #1" - which gave
+           the reader the entity *type*, already stated by the Type column, plus an internal id
+           they cannot act on. Every alert message leads with the business code the operator
+           actually recognises ("RM-001 is short by...", "Machine-02 is running at..."), so the
+           column was costing the widest cell on the row to say less than its neighbours. *@
+        <table class="table table-sm"><thead><tr><th scope="col">Severity</th><th scope="col">Type</th><th scope="col">Message</th><th scope="col">Raised</th></tr></thead>
+            <tbody>@foreach (var alert in Alerts) { <tr><td><StatusBadge Severity="alert.Severity" /></td><td>@alert.AlertType</td><td>@alert.Message</td><td>@alert.CreatedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
     </div>
 }
 

@@ -79,9 +79,19 @@ public sealed class DashboardService(
     {
         await alertEvaluation.EvaluateAsync(cancellationToken);
 
+        // Severity first, then recency. Sorting by CreatedAt alone let a newly-raised Warning sit
+        // above an older Critical, which is backwards for a screen whose job is to surface the
+        // worst thing happening.
+        //
+        // Ordering on the Severity column itself does NOT work: it is persisted via
+        // HasConversion<string>(), so the database sorts it alphabetically, and "Warning" sorts
+        // after "Critical" - descending would put every Warning on top. Comparing to the enum
+        // member instead states the intent directly and survives both a renamed member and any
+        // future collation change.
         return await dbContext.Alerts.AsNoTracking()
             .Where(x => x.IsActive)
-            .OrderByDescending(x => x.CreatedAt)
+            .OrderByDescending(x => x.Severity == AlertSeverity.Critical)
+            .ThenByDescending(x => x.CreatedAt)
             .Select(x => new ActiveAlertDto(x.Id, x.AlertType, x.Severity, x.EntityName, x.EntityId, x.Message, x.CreatedAt))
             .ToArrayAsync(cancellationToken);
     }
