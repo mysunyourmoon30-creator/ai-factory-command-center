@@ -1,6 +1,7 @@
 @page "/"
 @attribute [Authorize]
 @inject IDashboardService Dashboard
+@inject TimeProvider TimeProvider
 
 <PageTitle>AI Factory Command Center</PageTitle>
 
@@ -21,6 +22,9 @@ else
            machines, both broken out in the section directly below. *@
         <div class="col"><KpiCard Label="Critical Risks" Value="@Kpi.CriticalRiskCount" Icon="shortage" Tone="@Danger(Kpi.CriticalRiskCount)" Href="#critical-risks" /></div>
     </div>
+    <p class="text-muted mt-2 mb-0" style="font-size: var(--af-text-xs);">
+        Read live from the database as of @TimeProvider.GetUtcNow().UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture).
+    </p>
 }
 
 <h2 class="h4 mt-4" id="critical-risks">Critical Risks</h2>
@@ -50,18 +54,12 @@ else
     }
 }
 
-<h2 class="h4 mt-4">Daily Factory Summary</h2>
-@if (DailySummary is not null)
-{
-    <dl class="row">
-        <dt class="col-sm-3">As of</dt><dd class="col-sm-9">@DailySummary.AsOfDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</dd>
-        <dt class="col-sm-3">Customer Orders</dt><dd class="col-sm-9">@DailySummary.CustomerOrderCount</dd>
-        <dt class="col-sm-3">Production Plans</dt><dd class="col-sm-9">@DailySummary.ProductionPlanCount</dd>
-        <dt class="col-sm-3">Material Shortages</dt><dd class="col-sm-9">@DailySummary.MaterialShortageCount</dd>
-        <dt class="col-sm-3">Late Purchase Orders</dt><dd class="col-sm-9">@DailySummary.LatePurchaseOrderCount</dd>
-        <dt class="col-sm-3">Critical Machines</dt><dd class="col-sm-9">@DailySummary.CriticalMachineCount</dd>
-    </dl>
-}
+@* The "Daily Factory Summary" list that used to sit here repeated four of the five figures from
+   the KPI cards above verbatim, so the reader scrolled past the same numbers twice. Removed from
+   this screen only: IDashboardService.GetDailySummaryAsync, /api/dashboard/daily-summary and the
+   GetDailyFactorySummary AI tool are the locked §16.11 shape and are untouched.
+
+   Its one non-redundant value, the as-of date, is kept as the caption under the cards. *@
 
 <h2 class="h4 mt-4">Alert List</h2>
 @if (Alerts is null) { <EmptyState Message="Loading alerts..." Loading="true" /> }
@@ -81,14 +79,16 @@ else
     private static KpiCard.KpiTone Danger(int count) => count > 0 ? KpiCard.KpiTone.Danger : KpiCard.KpiTone.Neutral;
 
     private DashboardKpiDto? Kpi;
-    private DailySummaryDto? DailySummary;
     private CriticalRisksDto? CriticalRisks;
     private IReadOnlyCollection<ActiveAlertDto>? Alerts;
 
+    // Dropping GetDailySummaryAsync also drops a full duplicate run of the shortage engine and
+    // the late-PO scan, both of which GetKpiAsync had already done for this same page load.
+    // Sequential on purpose: these share one scoped AppDbContext, which is not thread-safe, so
+    // Task.WhenAll here would be a concurrency bug rather than an optimisation.
     protected override async Task OnInitializedAsync()
     {
         Kpi = await Dashboard.GetKpiAsync();
-        DailySummary = await Dashboard.GetDailySummaryAsync();
         CriticalRisks = await Dashboard.GetCriticalRisksAsync();
         Alerts = await Dashboard.ListActiveAlertsAsync();
     }
