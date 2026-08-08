@@ -40,7 +40,7 @@ public sealed class CopilotTests : IClassFixture<AiFactoryWebApplicationFactory>
     [Fact]
     public async Task Off_topic_question_never_calls_ollama_and_an_empty_question_is_rejected()
     {
-        FakeOllamaClient.Reset();
+        _factory.Ollama.Reset();
         using var client = CreateClient();
         await LoginAsync(client, "planner.demo");
 
@@ -48,11 +48,11 @@ public sealed class CopilotTests : IClassFixture<AiFactoryWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, offTopic.StatusCode);
         var body = (await offTopic.Content.ReadFromJsonAsync<CopilotResponseDto>())!;
         Assert.Equal(CopilotService.NoMatchText, body.Summary);
-        Assert.Equal(0, FakeOllamaClient.CallCount);
+        Assert.Equal(0, _factory.Ollama.CallCount);
 
         using var empty = await SendJsonAsync(client, "/api/ai-copilot/ask", new AskCopilotCommand("   "));
         Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
-        Assert.Equal(0, FakeOllamaClient.CallCount);
+        Assert.Equal(0, _factory.Ollama.CallCount);
     }
 
     [Fact]
@@ -61,16 +61,16 @@ public sealed class CopilotTests : IClassFixture<AiFactoryWebApplicationFactory>
         using var client = CreateClient();
         await LoginAsync(client, "planner.demo");
 
-        FakeOllamaClient.NextRawResponse = (_, _) => "not json";
+        _factory.Ollama.NextRawResponse = (_, _) => "not json";
         var malformed = await AskAsync(client, "What raw materials are short?");
         Assert.True(malformed.IsFallback);
         Assert.Equal(CopilotService.FallbackText, malformed.Summary);
 
-        FakeOllamaClient.NextRawResponse = (_, _) => """{"riskLevel": "Critical"}""";
+        _factory.Ollama.NextRawResponse = (_, _) => """{"riskLevel": "Critical"}""";
         var missingSummary = await AskAsync(client, "What raw materials are short?");
         Assert.True(missingSummary.IsFallback);
 
-        FakeOllamaClient.NextRawResponse = (_, _) => """{"summary": "x", "riskLevel": "SuperBad"}""";
+        _factory.Ollama.NextRawResponse = (_, _) => """{"summary": "x", "riskLevel": "SuperBad"}""";
         var badEnum = await AskAsync(client, "What raw materials are short?");
         Assert.True(badEnum.IsFallback);
     }
@@ -81,7 +81,7 @@ public sealed class CopilotTests : IClassFixture<AiFactoryWebApplicationFactory>
     {
         using var client = CreateClient();
         await LoginAsync(client, "planner.demo");
-        FakeOllamaClient.NextException = new HttpRequestException("Connection refused");
+        _factory.Ollama.NextException = new HttpRequestException("Connection refused");
 
         var response = await AskAsync(client, "What raw materials are short?");
         Assert.True(response.IsFallback);
@@ -104,11 +104,11 @@ public sealed class CopilotTests : IClassFixture<AiFactoryWebApplicationFactory>
         await LoginAsync(client, "planner.demo");
         var before = await CountExecutionLogsAsync();
 
-        FakeOllamaClient.NextRawResponse = (_, _) => """{"summary": "ok"}""";
+        _factory.Ollama.NextRawResponse = (_, _) => """{"summary": "ok"}""";
         await AskAsync(client, "What raw materials are short?");
         Assert.Equal(before + 1, await CountExecutionLogsAsync());
 
-        FakeOllamaClient.NextException = new HttpRequestException("down");
+        _factory.Ollama.NextException = new HttpRequestException("down");
         await AskAsync(client, "What raw materials are short?");
         Assert.Equal(before + 2, await CountExecutionLogsAsync());
     }
@@ -122,7 +122,7 @@ public sealed class CopilotTests : IClassFixture<AiFactoryWebApplicationFactory>
     {
         using var client = CreateClient();
         await LoginAsync(client, username);
-        FakeOllamaClient.NextRawResponse = (_, _) => """{"summary": "ok"}""";
+        _factory.Ollama.NextRawResponse = (_, _) => """{"summary": "ok"}""";
 
         using var response = await SendJsonAsync(client, "/api/ai-copilot/ask", new AskCopilotCommand("What raw materials are short?"));
 
@@ -142,7 +142,7 @@ public sealed class CopilotTests : IClassFixture<AiFactoryWebApplicationFactory>
     private async Task<string> AskAndCaptureContextAsync(HttpClient client, string question)
     {
         string? captured = null;
-        FakeOllamaClient.NextRawResponse = (_, userContent) => { captured = userContent; return """{"summary": "ok"}"""; };
+        _factory.Ollama.NextRawResponse = (_, userContent) => { captured = userContent; return """{"summary": "ok"}"""; };
         using var response = await SendJsonAsync(client, "/api/ai-copilot/ask", new AskCopilotCommand(question));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return captured ?? throw new InvalidOperationException("Ollama was not called.");

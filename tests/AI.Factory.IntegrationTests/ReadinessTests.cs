@@ -13,8 +13,8 @@ public sealed class ReadinessTests : IClassFixture<AiFactoryWebApplicationFactor
     [Fact]
     public async Task Health_ready_reports_ollama_down_by_default_and_is_admin_only()
     {
-        FakeOllamaClient.Reset();
-        FakeOllamaClient.NextReachable = false;
+        _factory.Ollama.Reset();
+        _factory.Ollama.NextReachable = false;
 
         using var adminClient = CreateClient();
         await LoginAsync(adminClient, "admin.demo");
@@ -34,8 +34,8 @@ public sealed class ReadinessTests : IClassFixture<AiFactoryWebApplicationFactor
     [Fact]
     public async Task Health_ready_reports_healthy_when_ollama_is_reachable()
     {
-        FakeOllamaClient.Reset();
-        FakeOllamaClient.NextReachable = true;
+        _factory.Ollama.Reset();
+        _factory.Ollama.NextReachable = true;
 
         using var client = CreateClient();
         await LoginAsync(client, "admin.demo");

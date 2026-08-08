@@ -38,9 +38,16 @@ public sealed class AiFactoryWebApplicationFactory : WebApplicationFactory<Progr
             services.AddSingleton<TimeProvider>(new FixedTimeProvider(new DateTimeOffset(2026, 8, 4, 0, 0, 0, TimeSpan.Zero)));
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
             services.RemoveAll<IOllamaClient>();
-            services.AddScoped<IOllamaClient, FakeOllamaClient>();
+            // Singleton so every scope in THIS host shares one fake, and so two test classes
+            // running in parallel get two independent fakes (finding A8). IOllamaClient itself
+            // stays scoped, matching the lifetime the real client is registered with.
+            services.AddSingleton<FakeOllamaClient>();
+            services.AddScoped<IOllamaClient>(sp => sp.GetRequiredService<FakeOllamaClient>());
         });
     }
+
+    /// <summary>This host's fake Ollama client. Configure it from a test instead of static state.</summary>
+    public FakeOllamaClient Ollama => Services.GetRequiredService<FakeOllamaClient>();
 
     protected override IHost CreateHost(IHostBuilder builder)
     {
