@@ -87,7 +87,7 @@ Every feature is one vertical slice with a single application service consumed b
 4. `Web/Components/Pages/<Screen>.razor` — `@inject I<Area>Service`, calls the same methods directly.
 5. Register the scoped service in `Infrastructure/DependencyInjection.cs`.
 
-Because the UI calls services in-process, services that mutate business data take a `ClaimsPrincipal actor` and re-check roles themselves (`EnsureCanManage`) rather than trusting the endpoint policy. `IMasterDataService` is the exception — it has no actor parameter and relies on endpoint/UI policy only.
+Because the UI calls services in-process, services that mutate business data take a `ClaimsPrincipal actor` and re-check roles themselves (`EnsureCanManage`) rather than trusting the endpoint policy. Two services are exceptions with no actor parameter, relying on endpoint/UI policy only: `IMasterDataService` (by design) and `IAdminUserService` (an unintended gap — finding A2 in `docs/00_Project_Status.md`'s Screen × Role capability matrix; not exploitable today because Blazor never renders the handler for an ungated button, but it is being closed).
 
 ### Write-path conventions
 

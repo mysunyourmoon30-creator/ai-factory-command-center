@@ -21,6 +21,10 @@ Updated: 2026-08-07 (Asia/Bangkok)
 | Day 13 Release Verification Checklist, Setup Scripts | Done | All 13 checklist items verified (7 already covered by Days 1-12, 4 satisfied by existing code and now evidenced, 2 newly live-verified); `deploy/setup.ps1` and `deploy/seed-data.sql` verified end-to-end against fresh throwaway LocalDB databases, including a real login using the copied Identity password hash; found and fixed a real deployment-script bug (see acceptance evidence); 198/198 automated checks passed | IIS Local and IIS-restart-recovery are an environment finding, not verified — no IIS, no ASP.NET Core Hosting Bundle, and no Administrator rights on this machine (user-confirmed: defer, same treatment as Day 10's Ollama finding) | Begin Day 14 portfolio deliverables (README, diagrams, demo video, CV, job applications) per `00_Master_Scope_Final_Locked_V4.md` §23.1 — explicitly the user's own responsibility, not a coding task |
 | Day 14 (partial: README, Installation Guide, diagrams) | Doing | Root `README.md` rewritten (architecture + ER Mermaid diagrams, all 11 modules, setup instructions); `deploy/installation-guide.md` added (the locked deploy/ file layout's missing 5th file); found and fixed a real data-integrity leftover in the canonical demo DB (see below); 198/198 automated checks unaffected | Remaining Day 14 items (Demo Video, updated CV, 30 job applications) are explicitly the user's own responsibility per §23.1, not attempted here | User's own responsibility for the remaining portfolio items per §23.1 |
 | Seed 1 canonical Purchase Request + 1 Incoming PO | Done | `CanonicalProcurementSeeder` adds PR-BASE-001 (Approved) and PO-BASE-001 (Open) to the canonical seed, closing the Day 14 gap against the locked spec's "Seed Data ต้องมี" list; live-verified on the real canonical LocalDB that RM-001's locked 1,250 kg shortage, 0 EligibleIncoming, and 0 LatePurchaseOrderCount are all unaffected; `deploy/seed-data.sql` regenerated and re-verified end-to-end; 199/199 automated checks passed | None | None — this closes the gap; not a locked "Day 15" (the roadmap only defines Days 1-14) |
+| Quality pass P1: per-screen role audit + roadmap | Done | Screen × Role capability matrix added below covering all four enforcement layers for all 11 screens; 7 findings (A1-A7) recorded with severity and honest exploitability assessment | None | Begin P2 security hardening |
+| Quality pass P2: security hardening | Not Started | — | — | Security response headers (A1), `IAdminUserService` actor re-check (A2), authorization-gated eager loads (A3) |
+| Quality pass P3: query performance | Not Started | — | — | `AuditLogs` index (A4), bounded audit CSV export (A5), `IncomingPurchaseOrderItems` mirror index (A6), N+1 fix (A7) |
+| Quality pass P4: UX/UI polish | Not Started | — | — | Design tokens + typography, first `Components/Shared/` set, `table-responsive`, accessibility |
 
 ## Day 1 acceptance evidence
 
@@ -63,16 +67,86 @@ Updated: 2026-08-07 (Asia/Bangkok)
 - Day 14 (partial) added no feature, table, or endpoint — a README rewrite, one new `deploy/` doc file (`installation-guide.md`, the last file named in the locked `deploy/` layout that hadn't been created yet), and a data-only fix restoring Machine-01 to its canonical seed values (via the app's own API, not a direct database write). Screenshots, Demo Video, CV, and job applications were explicitly out of scope for this pass per user direction.
 - The Purchase Request/Incoming PO seed follow-up added no table, column, or endpoint — one new seeder (`CanonicalProcurementSeeder`) inserting directly via `AppDbContext`, matching every other `Canonical*Seeder`. It is a data-only addition closing a gap the locked spec itself already named ("Seed Data ต้องมี"), not a new feature; the locked roadmap only defines Days 1-14 (line 2497 "Roadmap 14 วัน"), so this isn't logged as a "Day 15."
 
+## Screen × Role capability matrix
+
+Audit of the enforcement layers per screen, produced by the post-roadmap quality pass. The table
+below covers the three layers on the in-process Blazor path — the Razor page's own `@attribute`,
+the `AuthorizeView` policy around each action, and the application service's own actor re-check.
+The fourth layer, the API endpoint's `RequireAuthorization`, is not a per-screen column because
+endpoints do not map one-to-one onto screens; all write endpoints carry a named policy, and read
+groups deliberately carry a bare `.RequireAuthorization()` so every role can read.
+
+Policies (`AuthorizationRegistrationExtensions.cs:12-22`) resolve to roles as follows:
+
+| Policy | Admin | Manager | Planner | Viewer |
+|---|:-:|:-:|:-:|:-:|
+| CanManageMasterData | Y | | Y | |
+| CanManageOrders | Y | | Y | |
+| CanManageProductionPlans | Y | | Y | |
+| CanCreatePurchaseRequest | Y | Y | Y | |
+| CanApprovePurchaseRequest | Y | Y | | |
+| CanRecordIncomingPurchaseOrder | Y | Y | | |
+| CanViewAuditLog | Y | Y | | |
+| CanManageUsers | Y | | | |
+| CanUpdateMachineSimulator | Y | | | |
+| CanUseAiCopilot | Y | Y | Y | Y |
+| CanExportReports | Y | Y | Y | Y |
+
+Per screen:
+
+| Screen | Page gate | Action gates (`AuthorizeView`) | Service actor re-check |
+|---|---|---|---|
+| Home (Dashboard) | `[Authorize]` | none — read-only | n/a (read) |
+| Material Management | `[Authorize]` | CanManageMasterData | **none — documented exception** |
+| Customer Orders (list) | `[Authorize]` | CanManageOrders | `CustomerOrderService:154` |
+| Customer Order (detail) | `[Authorize]` | CanManageOrders, CanManageProductionPlans | `CustomerOrderService:154`, `ProductionPlanService:145` |
+| Production Plans | `[Authorize]` | CanManageProductionPlans | `ProductionPlanService:145` |
+| Material Requirements (tab of Material Management) | `[Authorize]` | none — read-only | n/a (read) |
+| Material Shortage | `[Authorize]` | CanCreatePurchaseRequest | `MaterialShortageService:247` |
+| Procurement | `[Authorize]` | CanCreatePurchaseRequest, CanApprovePurchaseRequest, CanRecordIncomingPurchaseOrder | `ProcurementService:233,239,245` |
+| AI Copilot | `[Authorize]` | none | `CopilotService:122` |
+| Machine Monitoring | `[Authorize]` | CanUpdateMachineSimulator | `MachineService:61` |
+| Audit and Administration | `[Authorize]` | CanViewAuditLog, CanManageUsers | **none — undocumented gap** |
+
+Every functional screen carries only `[Authorize]` at page level (any authenticated role, Viewer
+included); per-action authorization is deferred entirely to `AuthorizeView`. That is a deliberate
+design — a Viewer is meant to reach every screen read-only — but it means the service-layer
+re-check is what actually separates roles on the in-process Blazor path, since endpoint policy and
+`ExecuteWriteAsync` antiforgery only run on the JSON API path.
+
+### Findings
+
+| # | Finding | Severity | Status |
+|---|---|---|---|
+| A1 | No security response headers anywhere (`Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` all absent from `src/`). HSTS is the only header protection and it is disabled in Development. | Medium | Open |
+| A2 | `IAdminUserService` takes no `ClaimsPrincipal actor`, so `AdminUserService.SetActiveAsync:25` mutates account state with no service-layer role check — a second, undocumented exception to the actor-recheck convention alongside the documented `IMasterDataService` one, on a more sensitive operation. | Medium | Open |
+| A3 | `AuditAndAdministration.razor:80-81` calls `AuditLogs.ListAsync` and `AdminUsers.ListAsync` inside `OnInitializedAsync`, before any `AuthorizeView` gate, so a Planner/Viewer page load still executes both queries. | Low | Open |
+| A4 | `AuditLogs` is append-only and unbounded, but its only index leads with `Username` while the service filters on `Action` alone and range-filters/sorts on `CreatedAt` alone — every audit page load is a scan + sort. | Medium | Open |
+| A5 | `ReportExportService:87-89` exports `vw_AuditLogReport` with no filter and no row limit — latent OOM on the fastest-growing table. | Medium | Open |
+| A6 | `IncomingPurchaseOrderItems` has no `(RawMaterialId, …)` index; the composite leads with `IncomingPurchaseOrderId`, so hot shortage-path filters on `RawMaterialId` cannot seek. `PurchaseRequestItems` correctly carries both orderings. | Low | Open |
+| A7 | `AdminUserService.ListAsync:17-19` issues 1+2N queries (role lookup inside the loop) — the only true N+1 in the codebase. | Low | Open |
+
+A2 and A3 are **not exploitable as they stand**: Blazor Server never registers an event-handler id
+for a button `AuthorizeView` did not render, and unrendered component state never reaches the
+browser, so no unauthorized mutation is reachable and no data leaks. The API path is correctly
+gated (`RequireAuthorization(CanManageUsers)`). They are recorded as defence-in-depth debt because
+a single markup refactor would turn A2 into a real hole.
+
+Deliberately **not** treated as findings: `/health/ready` requiring Admin is by design (Day 13
+checklist item 11); the shortage engine's client-side evaluation is required because
+`MaterialAvailabilityRules` and `IOrderRiskCalculator` are C# the provider cannot translate, and
+pushing that math into SQL would break the locked "report views carry no time-relative math" rule.
+
 ## Handoff
 
 - Current module: N/A — Day 13-14 (partial) and the PR/Incoming PO seed follow-up were deployment scripting, release verification, and documentation/data work, not a feature module
-- Current task: PR-BASE-001/PO-BASE-001 canonical seed follow-up (closed)
+- Current task: Post-roadmap quality pass, P1 (per-screen role audit + roadmap) — closed
 - Status: Done
 - Remaining error: None known
 - Last commit: See `git log -1`
-- Next task: The only remaining thread is the user's own Day 14 portfolio work — Screenshots, Demo Video, updated CV, 30 job applications per §23.1 — not a coding task; offer to help draft *content* if asked (e.g. a demo script, README-derived talking points), but the applications/CV/video themselves are the user's. Everything else the locked spec names through Day 14 is now done: all 15 Required Tests, all 13 Release Verification items except IIS Local (environment finding, needs an elevated session on a machine with IIS), and the full locked canonical seed dataset (users/machines/materials/formulations/orders/plans/1 PR/1 Incoming PO).
+- Next task: Quality pass P2 (security hardening) against findings A1-A3 — security response headers, `IAdminUserService` actor re-check, and authorization-gated eager loads in `AuditAndAdministration.razor`. Then P3 (query performance, A4-A7) and P4 (UX/UI polish). Separately and unchanged: the user's own Day 14 portfolio work — Demo Video, updated CV, 30 job applications per §23.1 — is not a coding task; offer to help draft *content* if asked (a demo script already exists at `demo/talking-points.md`), but the applications/CV/video themselves are the user's. Everything the locked spec names through Day 14 is done: all 15 Required Tests, all 13 Release Verification items except IIS Local (environment finding, needs an elevated session on a machine with IIS), and the full locked canonical seed dataset (users/machines/materials/formulations/orders/plans/1 PR/1 Incoming PO).
 - Outstanding, not yet verified: **IIS Local runs** and **IIS restart recovery** (2 of the Day 13 checklist's items) — this machine has no IIS, no ASP.NET Core Hosting Bundle, and no Administrator rights, so `publish-iis.ps1` was written to Microsoft's documented process but never executed. Whoever has access to an elevated session on a machine with IIS available should run it and confirm both items before Gate 4 is called fully done.
-- Outstanding: canonical seed is missing 1 Purchase Request + 1 Incoming PO per the locked spec's own seed-data requirement (see the spun-off follow-up task above).
+- Outstanding: the post-roadmap quality pass — P2 security hardening, P3 query performance, P4 UX/UI polish, each shipping as its own commit against findings A1-A7 in the Screen × Role capability matrix above. This pass is quality work on the existing 11 screens, not new scope: no table, module, screen, role, endpoint, or AI tool is added, and the 15-Required-Test cap stands.
 - Do not change: locked topology, table count (view entities via `.ToView` never count toward it), `SourceProductionPlanId` uniqueness rule, TimeProvider policy, the unclamped On-hand Available used in calculations, the Serializable isolation used for Purchase Request creation, the receipt endpoint's cumulative-quantity contract, the report views' no-time-relative-math rule, any `.ToString("yyyy-MM-dd", ...)` call's explicit `CultureInfo.InvariantCulture`, the 4-tool AI allow-list (never add a 5th or a write tool), the localhost-only Ollama guard, the `/health`-and-`/api` exclusion from the Blazor redirect/status-code-page middleware, the Machine Alert Rule boundaries (`<85`/`85-94.99`/`≥95` Running, always Warning when Stopped), the alert dedup unique filtered index, `IMachineUpdateNotifier`'s no-op-default/Web-override registration order, the audit log CSV export's narrower `CanViewAuditLog` gate (not the generic `CanExportReports`), the 15-Required-Tests cap (do not add a 16th required test), the `EXEC(N'CREATE VIEW ...')` wrapping in the two report-view migrations (needed so `deploy/database.sql` runs via `sqlcmd`, not just via `dotnet ef database update` — see Day 13 acceptance evidence), or `setup.ps1`'s dual `AI_FACTORY_CONNECTION_STRING`/`ConnectionStrings__AiFactory` environment variables (both are required — one for each of the script's two steps, see the script's own comment)
 
 ## Day 2 acceptance evidence
