@@ -165,6 +165,11 @@ and are closed; this series covers the other eight routes plus the defects that 
 | G11 | `/ai-copilot` | The `"ai-copilot"` rate-limiting policy only guards `POST /api/ai-copilot/ask`. The page calls `ICopilotService` in-process per the shared-service rule, so the limit never ran on the path the UI takes and questions asked through the screen were unlimited — one authenticated user of any role could pin Ollama and flood `AiToolExecutionLogs`. Same shape as A2: protection sitting on a path the UI does not use. | Medium | **Closed (C3)** |
 | G12 | *four screens* | CSV export links used `target="_blank"` with no `rel="noopener noreferrer"`. Same-origin, so not exploitable here, but it is the kind of thing that stops being true the day a link points elsewhere. | Low | **Closed (C3)** |
 
+| G13 | `/orders` | Search could not be submitted with Enter. `InputText` + a separate Filter button with no `<form>` around them, on the one control the screen exists for. They were also `EditForm` inputs used outside any `EditForm`, so they had no `EditContext`. | Medium | **Closed (C4)** |
+| G14 | `/orders` | No way to isolate at-risk orders, though the dashboard's "Orders at risk" KPI links straight here. `CustomerOrderQuery` gained an optional `RiskStatus`. Risk is computed in C# and cannot run in SQL, so supplying it materialises the otherwise-filtered set before paging — the cost is documented at the branch. **Reconciled against the KPI:** Normal 9 + Warning 0 + Critical 1 = 10 total, and Warning + Critical = 1 = `ordersAtRiskCount`. | Medium | **Closed (C4)** |
+| G15 | `/orders` | The empty state rendered *below* an empty table head, with the pager still offering pages that did not exist. Now an `EmptyState` whose hint changes depending on whether a filter is active. | Low | **Closed (C4)** |
+| G16 | `/orders` | `HasProductionPlan` was fetched into the DTO and then discarded by the table, though it decides whether an order still needs planning and whether it can be edited at all. Now a "Plan" column. | Low | **Closed (C4)** |
+
 #### G10 — deactivation proved ineffective, then proved fixed
 
 `AddIdentityCookies()` already points `OnValidatePrincipal` at `SecurityStampValidator`, and the

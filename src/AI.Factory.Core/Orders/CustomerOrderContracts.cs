@@ -18,7 +18,17 @@ public sealed record CustomerOrderDto(
     byte[] RowVersion);
 
 public sealed record CustomerOrderPage(IReadOnlyCollection<CustomerOrderDto> Items, int Page, int PageSize, int TotalCount);
-public sealed record CustomerOrderQuery(string? Search = null, CustomerOrderStatus? LifecycleStatus = null, int Page = 1, int PageSize = 20);
+/// <param name="RiskStatus">
+/// Optional filter on the *computed* delivery risk. Unlike the other filters this one cannot run in
+/// the database — see <see cref="IOrderRiskCalculator" /> — so supplying it changes how the query
+/// is executed. The implementation documents the cost.
+/// </param>
+public sealed record CustomerOrderQuery(
+    string? Search = null,
+    CustomerOrderStatus? LifecycleStatus = null,
+    int Page = 1,
+    int PageSize = 20,
+    RiskStatus? RiskStatus = null);
 public sealed record CreateCustomerOrderCommand(string OrderNumber, string CustomerName, long FormulationId, decimal Quantity, DateTime DeliveryDate, string Priority);
 public sealed record UpdateCustomerOrderCommand(string OrderNumber, string CustomerName, long FormulationId, decimal Quantity, DateTime DeliveryDate, string Priority, byte[] RowVersion);
 public sealed record TransitionCustomerOrderCommand(CustomerOrderStatus TargetStatus, byte[] RowVersion);

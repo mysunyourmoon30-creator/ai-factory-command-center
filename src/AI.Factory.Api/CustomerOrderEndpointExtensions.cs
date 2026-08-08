@@ -14,8 +14,8 @@ public static class CustomerOrderEndpointExtensions
     public static IEndpointRouteBuilder MapCustomerOrderEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var orders = endpoints.MapGroup("/api/customer-orders").RequireAuthorization();
-        orders.MapGet("/", async (string? search, AI.Factory.Core.Domain.CustomerOrderStatus? lifecycleStatus, int? page, int? pageSize, ICustomerOrderService service, CancellationToken ct) =>
-            Results.Ok(await service.ListAsync(new(search, lifecycleStatus, page ?? 1, pageSize ?? 20), ct)));
+        orders.MapGet("/", async (string? search, AI.Factory.Core.Domain.CustomerOrderStatus? lifecycleStatus, int? page, int? pageSize, AI.Factory.Core.Domain.RiskStatus? riskStatus, ICustomerOrderService service, CancellationToken ct) =>
+            Results.Ok(await service.ListAsync(new(search, lifecycleStatus, page ?? 1, pageSize ?? 20, riskStatus), ct)));
         orders.MapGet("/{id:long}", async (long id, ICustomerOrderService service, CancellationToken ct) =>
             await service.GetAsync(id, ct) is { } item ? Results.Ok(item) : Results.NotFound());
         orders.MapPost("/", (HttpContext http, IAntiforgery anti, [FromBody] CreateCustomerOrderCommand command, ICustomerOrderService service, CancellationToken ct) =>

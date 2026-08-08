@@ -32,10 +32,35 @@ public sealed class CustomerOrderService(
             orders = orders.Where(x => x.Status == query.LifecycleStatus);
         }
 
-        var totalCount = await orders.CountAsync(cancellationToken);
-        var entities = await orders.OrderBy(x => x.DeliveryDate).ThenBy(x => x.OrderNumber)
-            .Skip((page - 1) * pageSize).Take(pageSize).ToArrayAsync(cancellationToken);
-        return new CustomerOrderPage(entities.Select(Map).ToArray(), page, pageSize, totalCount);
+        orders = orders.OrderBy(x => x.DeliveryDate).ThenBy(x => x.OrderNumber);
+
+        if (query.RiskStatus is null)
+        {
+            var totalCount = await orders.CountAsync(cancellationToken);
+            var entities = await orders.Skip((page - 1) * pageSize).Take(pageSize).ToArrayAsync(cancellationToken);
+            return new CustomerOrderPage(entities.Select(Map).ToArray(), page, pageSize, totalCount);
+        }
+
+        // Risk is IOrderRiskCalculator comparing the delivery date against the plan's planned
+        // completion date - C# the provider cannot translate - so this filter cannot run in SQL and
+        // the database cannot count or page a risk-filtered set. Everything matching the *other*
+        // filters is therefore materialised, then filtered and paged here.
+        //
+        // Search and LifecycleStatus have already narrowed it, and the locked dataset is small, so
+        // this is affordable today. If the order table ever outgrows a single request's memory,
+        // this branch is the line that has to change - not the calculator, which stays in C# by
+        // design (pushing that math into SQL would break the locked "report views carry no
+        // time-relative math" rule).
+        var matching = (await orders.ToArrayAsync(cancellationToken))
+            .Select(Map)
+            .Where(x => x.RiskStatus == query.RiskStatus)
+            .ToArray();
+
+        return new CustomerOrderPage(
+            matching.Skip((page - 1) * pageSize).Take(pageSize).ToArray(),
+            page,
+            pageSize,
+            matching.Length);
     }
 
     public async Task<CustomerOrderDto?> GetAsync(long id, CancellationToken cancellationToken = default)

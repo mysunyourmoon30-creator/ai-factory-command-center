@@ -10,40 +10,68 @@
     </AuthorizeView>
 </div>
 
-<div class="row g-2 mb-3">
-    <div class="col-md-5"><InputText class="form-control" @bind-Value="Search" placeholder="Order number or customer" /></div>
+@* A real form, so Enter submits. These were InputText/InputSelect with a separate Filter button and
+   no form around them: pressing Enter in the search box did nothing at all, on the one control this
+   screen exists for. They were also Blazor's EditForm inputs used outside any EditForm, so they had
+   no EditContext to bind validation to - plain inputs are what this is. *@
+<form class="row g-2 mb-3" @onsubmit="ApplyFilterAsync" @onsubmit:preventDefault>
+    <div class="col-md-4">
+        <label class="form-label" for="order-search">Search</label>
+        <input id="order-search" class="form-control" @bind="Search" @bind:event="oninput" placeholder="Order number or customer" />
+    </div>
     <div class="col-md-3">
-        <InputSelect class="form-select" @bind-Value="StatusFilter">
+        <label class="form-label" for="order-lifecycle">Lifecycle</label>
+        <select id="order-lifecycle" class="form-select" @bind="StatusFilter">
             <option value="">All lifecycle statuses</option>
             @foreach (var status in Enum.GetValues<CustomerOrderStatus>()) { <option value="@status">@status</option> }
-        </InputSelect>
+        </select>
     </div>
-    <div class="col-md-2"><button class="btn btn-outline-primary" @onclick="ApplyFilterAsync">Filter</button></div>
-</div>
+    @* The dashboard's "Orders at risk" KPI links here. Without this the operator arrived at a flat
+       list with no way to isolate the orders the number was counting. *@
+    <div class="col-md-3">
+        <label class="form-label" for="order-risk">Delivery risk</label>
+        <select id="order-risk" class="form-select" @bind="RiskFilter">
+            <option value="">All risk levels</option>
+            @foreach (var risk in Enum.GetValues<RiskStatus>()) { <option value="@risk">@risk</option> }
+        </select>
+    </div>
+    <div class="col-md-2 align-self-end">
+        <button class="btn btn-outline-primary w-100" type="submit">Filter</button>
+    </div>
+</form>
 
 @if (Page is null)
 {
-    <p>Loading...</p>
+    <EmptyState Message="Loading customer orders..." Loading="true" />
+}
+else if (Page.Items.Count == 0)
+{
+    @* Used to render an empty table head with the message underneath it, and the pager stayed
+       visible offering pages that did not exist. *@
+    <EmptyState Message="No customer order matches this filter."
+                Hint="@(HasFilter ? "Clear the search, lifecycle or risk filter to see every order." : "Create the first customer order to get started.")" />
 }
 else
 {
     <div class="table-responsive">
         <table class="table table-striped align-middle">
-            <thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Formulation</th><th scope="col" class="text-end">Quantity</th><th scope="col">Delivery</th><th scope="col">Priority</th><th scope="col">Lifecycle</th><th scope="col">Risk</th></tr></thead>
+            <thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Formulation</th><th scope="col" class="text-end">Quantity</th><th scope="col">Delivery</th><th scope="col">Priority</th><th scope="col">Plan</th><th scope="col">Lifecycle</th><th scope="col">Risk</th></tr></thead>
             <tbody>
             @foreach (var order in Page.Items)
             {
                 <tr>
                     <td><a href="orders/@order.Id">@order.OrderNumber</a></td><td>@order.CustomerName</td><td>@order.FormulationCode</td>
                     <td class="text-end">@order.Quantity.ToString("N3", CultureInfo.InvariantCulture)</td><td>@order.DeliveryDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td>@order.Priority</td>
-                    <td><span class="badge text-bg-secondary">@order.LifecycleStatus</span></td>
+                    @* Already in the DTO and previously discarded. It is what decides whether this
+                       order still needs planning and whether it can still be edited at all. *@
+                    <td>@(order.HasProductionPlan ? "Created" : "—")</td>
+                    <td><StatusBadge Neutral="@order.LifecycleStatus.ToString()" /></td>
                     <td><StatusBadge Risk="order.RiskStatus" /></td>
                 </tr>
             }
             </tbody>
         </table>
     </div>
-    @if (Page.Items.Count == 0) { <div class="alert alert-light">No customer orders found.</div> }
     <div class="d-flex justify-content-between align-items-center">
         <span>@Page.TotalCount order(s)</span>
         <div>
@@ -59,8 +87,10 @@ else
     private CustomerOrderPage? Page;
     private string Search = "";
     private string StatusFilter = "";
+    private string RiskFilter = "";
     private int CurrentPage = 1;
     private int TotalPages => Page is null ? 1 : Math.Max(1, (int)Math.Ceiling(Page.TotalCount / (double)Page.PageSize));
+    private bool HasFilter => !string.IsNullOrWhiteSpace(Search) || !string.IsNullOrEmpty(StatusFilter) || !string.IsNullOrEmpty(RiskFilter);
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
     private async Task ApplyFilterAsync() { CurrentPage = 1; await LoadAsync(); }
@@ -68,7 +98,8 @@ else
     private async Task NextAsync() { if (CurrentPage < TotalPages) CurrentPage++; await LoadAsync(); }
     private async Task LoadAsync()
     {
-        var status = Enum.TryParse<CustomerOrderStatus>(StatusFilter, out var parsed) ? parsed : (CustomerOrderStatus?)null;
-        Page = await Orders.ListAsync(new(Search, status, CurrentPage, PageSize));
+        var status = Enum.TryParse<CustomerOrderStatus>(StatusFilter, out var parsedStatus) ? parsedStatus : (CustomerOrderStatus?)null;
+        var risk = Enum.TryParse<RiskStatus>(RiskFilter, out var parsedRisk) ? parsedRisk : (RiskStatus?)null;
+        Page = await Orders.ListAsync(new(Search, status, CurrentPage, PageSize, risk));
     }
 }
