@@ -170,6 +170,27 @@ and are closed; this series covers the other eight routes plus the defects that 
 | G15 | `/orders` | The empty state rendered *below* an empty table head, with the pager still offering pages that did not exist. Now an `EmptyState` whose hint changes depending on whether a filter is active. | Low | **Closed (C4)** |
 | G16 | `/orders` | `HasProductionPlan` was fetched into the DTO and then discarded by the table, though it decides whether an order still needs planning and whether it can be edited at all. Now a "Plan" column. | Low | **Closed (C4)** |
 
+| G17 | `/production-plans` | `Plans.Single(x => x.Id == Selected.Id)` after a reload threw if the plan had gone; the sibling screens all use `SingleOrDefault`. | Medium | **Closed (C5)** |
+| G18 | `/production-plans` | The eligible-order lookup asks for one page of 100 and silently offered a subset if there were more Planned orders than that. Now says so rather than staying quiet. | Low | **Closed (C5)** |
+| G19 | `/production-plans` | A Planner landed on an empty *create* form with the schedule they came to check pushed below it. Monitoring now comes first, creation last. | Low | **Closed (C5)** |
+| G20 | `/production-plans`, `/material-shortages`, `/procurement` | Clicking "Detail" on a row near the bottom of the table looked like it did nothing — the panel it opened was below the fold, with no indication of which row was selected. Selected row is now marked and the panel is scrolled to (respecting `prefers-reduced-motion`). | Medium | **Closed (C5/C6/C7)** |
+| G21 | `/production-plans` | ~~The list eagerly `Include`s four related graphs, including every plan's material requirements, to render a seven-column table.~~ **Measured, not a defect — no change made.** See below. | — | **Withdrawn (C5)** |
+
+#### G21 — measured before optimising, then left alone
+
+The plan flagged the four-deep `Include` chain in `ProductionPlanService.Query()` as a candidate for
+projection. Measured against the real LocalDB with EF command logging on, one call to
+`/api/reports/production-risk` (the same `ListAsync` the screen uses) produced:
+
+- **1** `Executed DbCommand`, 33 ms — a single joined statement, not a split query and not an N+1
+- 8 plans, 25 material-requirement rows, 6,919-byte response
+
+There is no per-row query to eliminate and no cartesian blow-up to break up. The one thing a
+projection *would* trim is the unused columns EF drags along on the joined entities
+(`Machines.Temperature/Speed/AlertStatus`, related `RowVersion`s, `CreatedAt`/`UpdatedAt`), and at
+this size that is not worth changing a DTO shared with `/api/reports/production-risk` and
+`ReportExportService`. Recorded as measured-and-rejected so nobody re-opens it on suspicion.
+
 #### G10 — deactivation proved ineffective, then proved fixed
 
 `AddIdentityCookies()` already points `OnValidatePrincipal` at `SecurityStampValidator`, and the

@@ -4,56 +4,50 @@
 @inject ICustomerOrderService CustomerOrders
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject TimeProvider TimeProvider
+@inject IJSRuntime JS
 
 <PageTitle>Production Plan</PageTitle>
 <StatusMessage Message="@Message" Kind="@MessageKind" />
 
-<AuthorizeView Policy="@PolicyNames.CanManageProductionPlans">
-    <Authorized Context="createAuthorization">
-        <h2 class="h4 mt-4">Create Plan</h2>
-        @if (EligibleOrders.Count == 0)
-        {
-            <div class="alert alert-light">No Planned customer order without a production plan is available.</div>
-        }
-        else
-        {
-            <EditForm Model="Input" OnValidSubmit="CreateAsync">
-                <DataAnnotationsValidator /><ValidationSummary />
-                <div class="row g-2">
-                    <div class="col-md-3"><label class="form-label">Plan number</label><InputText class="form-control" @bind-Value="Input.PlanNumber" /></div>
-                    <div class="col-md-3"><label class="form-label">Customer order</label><InputSelect class="form-select" @bind-Value="Input.CustomerOrderId"><option value="0">Select order</option>@foreach (var order in EligibleOrders) { <option value="@order.Id">@order.OrderNumber - @order.FormulationCode (@order.Quantity.ToString("N3", CultureInfo.InvariantCulture))</option> }</InputSelect></div>
-                    <div class="col-md-3"><label class="form-label">Machine assignment</label><InputSelect class="form-select" @bind-Value="Input.MachineId"><option value="0">Select machine</option>@foreach (var machine in Machines) { <option value="@machine.Id">@machine.Code - @machine.Name</option> }</InputSelect></div>
-                    <div class="col-md-3"><label class="form-label">Planned completion</label><InputDate class="form-control" @bind-Value="Input.PlannedCompletionDate" /></div>
-                </div>
-                <button class="btn btn-primary mt-2" type="submit">Create plan and requirements</button>
-            </EditForm>
-        }
-    </Authorized>
-</AuthorizeView>
-
-<h2 class="h4 mt-4">Plan List / Production Risk Report</h2>
+@* Monitoring first, creation second. A Planner used to land on an empty form with the schedule
+   they came to check pushed below it; on a planning screen the current state is the context for
+   the decision, not the other way round. *@
 @if (Plans.Count > 0)
 {
-    <div class="row g-3 mb-2">
+    <div class="row g-3 mb-3">
         <div class="col-6 col-md-auto"><KpiCard Label="Normal" Value="@Plans.Count(x => x.RiskStatus == RiskStatus.Normal)" Tone="KpiCard.KpiTone.Success" Icon="plans" /></div>
         <div class="col-6 col-md-auto"><KpiCard Label="Warning" Value="@Plans.Count(x => x.RiskStatus == RiskStatus.Warning)" Tone="KpiCard.KpiTone.Warning" Icon="shortage" /></div>
         <div class="col-6 col-md-auto"><KpiCard Label="Critical" Value="@Plans.Count(x => x.RiskStatus == RiskStatus.Critical)" Tone="KpiCard.KpiTone.Danger" Icon="shortage" /></div>
     </div>
-    <div class="d-flex gap-2 align-items-end mb-2">
-        <div><label class="form-label">Filter by risk</label><select class="form-select" @bind="RiskFilter"><option value="">All</option><option value="Normal">Normal</option><option value="Warning">Warning</option><option value="Critical">Critical</option></select></div>
+    <div class="d-flex gap-2 align-items-end mb-2 flex-wrap">
+        <div>
+            <label class="form-label" for="plan-risk">Filter by risk</label>
+            <select id="plan-risk" class="form-select" @bind="RiskFilter"><option value="">All</option><option value="Normal">Normal</option><option value="Warning">Warning</option><option value="Critical">Critical</option></select>
+        </div>
         <a class="btn btn-outline-secondary" href="/api/reports/production-risk/export.csv" target="_blank" rel="noopener noreferrer">Export CSV</a>
     </div>
 }
-@if (FilteredPlans.Count == 0) { <div class="alert alert-light">No production plans found.</div> }
+
+@if (Plans.Count == 0)
+{
+    <EmptyState Message="No production plan exists yet."
+                Hint="A plan is created from a Planned customer order, which also generates its material requirements." />
+}
+else if (FilteredPlans.Count == 0)
+{
+    <EmptyState Message="@($"No production plan is at {RiskFilter} risk.")" Hint="Set the risk filter back to All to see every plan." />
+}
 else
 {
     <div class="table-responsive">
         <table class="table table-striped align-middle">
-            <thead><tr><th scope="col">Plan</th><th scope="col">Order</th><th scope="col">Machine</th><th scope="col">Required Batch</th><th scope="col">Completion</th><th scope="col">Lifecycle</th><th scope="col">Risk</th><th scope="col"></th></tr></thead>
+            <thead><tr><th scope="col">Plan</th><th scope="col">Order</th><th scope="col">Machine</th><th scope="col" class="text-end">Required Batch</th><th scope="col">Completion</th><th scope="col">Lifecycle</th><th scope="col">Risk</th><th scope="col"></th></tr></thead>
             <tbody>@foreach (var plan in FilteredPlans) {
-                <tr><td>@plan.PlanNumber</td><td>@plan.OrderNumber</td><td>@plan.MachineCode</td><td>@plan.RequiredBatch</td><td>@plan.PlannedCompletionDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
+                <tr class="@(Selected?.Id == plan.Id ? "table-active" : null)">
+                    <td>@plan.PlanNumber</td><td>@plan.OrderNumber</td><td>@plan.MachineCode</td><td class="text-end">@plan.RequiredBatch</td><td>@plan.PlannedCompletionDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
                     <td><StatusBadge Neutral="@plan.LifecycleStatus.ToString()" /></td><td><StatusBadge Risk="plan.RiskStatus" /></td>
-                    <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => Selected = plan">Detail</button></td></tr>
+                    <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectAsync(plan)">Detail</button></td>
+                </tr>
             }</tbody>
         </table>
     </div>
@@ -61,7 +55,7 @@ else
 
 @if (Selected is not null)
 {
-    <h2 class="h4 mt-4">@Selected.PlanNumber Detail</h2>
+    <h2 class="h4 mt-4" id="plan-detail">@Selected.PlanNumber Detail</h2>
     <dl class="row"><dt class="col-sm-3">Order / formulation</dt><dd class="col-sm-9">@Selected.OrderNumber / @Selected.FormulationCode</dd>
         <dt class="col-sm-3">Quantity / required batch</dt><dd class="col-sm-9">@Selected.OrderQuantity.ToString("N3", CultureInfo.InvariantCulture) / @Selected.RequiredBatch batch(es)</dd>
         <dt class="col-sm-3">Machine</dt><dd class="col-sm-9">@Selected.MachineCode - @Selected.MachineName</dd></dl>
@@ -71,58 +65,118 @@ else
     </div>
     <AuthorizeView Policy="@PolicyNames.CanManageProductionPlans">
         <Authorized Context="transitionAuthorization">
-            @if (NextStatus is not null) { <button class="btn btn-outline-primary" @onclick="TransitionAsync">Move plan to @NextStatus</button> }
+            @if (NextStatus is not null) { <button class="btn btn-outline-primary" disabled="@Submitting" @onclick="TransitionAsync">Move plan to @NextStatus</button> }
         </Authorized>
     </AuthorizeView>
 }
 
+<AuthorizeView Policy="@PolicyNames.CanManageProductionPlans">
+    <Authorized Context="createAuthorization">
+        <hr class="my-4" />
+        <h2 class="h4">Create Plan</h2>
+        @if (EligibleOrders.Count == 0)
+        {
+            <EmptyState Message="No Planned customer order is waiting for a production plan."
+                        Hint="Move a Draft order to Planned first — only Planned orders without a plan can be scheduled." />
+        }
+        else
+        {
+            <EditForm Model="Input" OnValidSubmit="CreateAsync">
+                <DataAnnotationsValidator /><ValidationSummary />
+                <div class="row g-2">
+                    <div class="col-md-3"><label class="form-label" for="plan-number">Plan number</label><InputText id="plan-number" class="form-control" @bind-Value="Input.PlanNumber" /></div>
+                    <div class="col-md-3"><label class="form-label" for="plan-order">Customer order</label><InputSelect id="plan-order" class="form-select" @bind-Value="Input.CustomerOrderId"><option value="0">Select order</option>@foreach (var order in EligibleOrders) { <option value="@order.Id">@order.OrderNumber - @order.FormulationCode (@order.Quantity.ToString("N3", CultureInfo.InvariantCulture))</option> }</InputSelect></div>
+                    <div class="col-md-3"><label class="form-label" for="plan-machine">Machine assignment</label><InputSelect id="plan-machine" class="form-select" @bind-Value="Input.MachineId"><option value="0">Select machine</option>@foreach (var machine in Machines) { <option value="@machine.Id">@machine.Code - @machine.Name</option> }</InputSelect></div>
+                    <div class="col-md-3"><label class="form-label" for="plan-completion">Planned completion</label><InputDate id="plan-completion" class="form-control" @bind-Value="Input.PlannedCompletionDate" /></div>
+                </div>
+                @* The eligible-order lookup asks for one page of 100. Saying so beats silently
+                   offering a subset of what the operator could actually schedule. *@
+                @if (EligibleOrdersTruncated)
+                {
+                    <p class="text-muted small mt-2 mb-0">Showing the first @EligibleOrders.Count eligible orders of @PlannedOrderCount Planned orders. Narrow the list from the Customer Orders screen if the one you want is missing.</p>
+                }
+                <button class="btn btn-primary mt-2" type="submit" disabled="@Submitting">@(Submitting ? "Creating..." : "Create plan and requirements")</button>
+            </EditForm>
+        }
+    </Authorized>
+</AuthorizeView>
+
 @code {
+    private const int EligibleOrderPageSize = 100;
+
     [Parameter, SupplyParameterFromQuery(Name = "orderId")] public long? RequestedOrderId { get; set; }
     private IReadOnlyCollection<ProductionPlanDto> Plans = [];
     private IReadOnlyCollection<CustomerOrderDto> EligibleOrders = [];
     private IReadOnlyCollection<MachineOptionDto> Machines = [];
+    private int PlannedOrderCount;
+    private bool EligibleOrdersTruncated;
     private ProductionPlanDto? Selected;
     private PlanInput Input = new();
     private string? Message;
     private StatusMessage.MessageKind MessageKind = StatusMessage.MessageKind.Info;
+    private bool Submitting;
     private string RiskFilter = "";
     private IReadOnlyCollection<ProductionPlanDto> FilteredPlans =>
         string.IsNullOrEmpty(RiskFilter) ? Plans : Plans.Where(x => x.RiskStatus.ToString() == RiskFilter).ToArray();
     private ProductionPlanStatus? NextStatus => Selected?.LifecycleStatus switch { ProductionPlanStatus.Planned => ProductionPlanStatus.InProduction, ProductionPlanStatus.InProduction => ProductionPlanStatus.Completed, _ => null };
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
+
     private async Task ReloadAsync()
     {
         Plans = await ProductionPlans.ListAsync();
         Machines = await ProductionPlans.ListMachinesAsync();
-        var planned = await CustomerOrders.ListAsync(new(LifecycleStatus: CustomerOrderStatus.Planned, PageSize: 100));
+        var planned = await CustomerOrders.ListAsync(new(LifecycleStatus: CustomerOrderStatus.Planned, PageSize: EligibleOrderPageSize));
+        PlannedOrderCount = planned.TotalCount;
+        EligibleOrdersTruncated = planned.TotalCount > planned.Items.Count;
         EligibleOrders = planned.Items.Where(x => !x.HasProductionPlan).ToArray();
         Input = new PlanInput { CustomerOrderId = RequestedOrderId is not null && EligibleOrders.Any(x => x.Id == RequestedOrderId) ? RequestedOrderId.Value : 0, PlannedCompletionDate = TimeProvider.GetUtcNow().UtcDateTime.Date.AddDays(2) };
     }
 
+    private async Task SelectAsync(ProductionPlanDto plan)
+    {
+        Selected = plan;
+        await ScrollToDetailAsync();
+    }
+
+    // The detail panel renders below a table that can be a screenful long, so clicking Detail on a
+    // low row used to look like nothing happened.
+    private async Task ScrollToDetailAsync()
+    {
+        try { await JS.InvokeVoidAsync("aiFactoryScrollIntoView", "plan-detail"); }
+        catch (JSException) { /* the panel is still open and reachable by scrolling */ }
+    }
+
     private async Task CreateAsync()
     {
+        if (Submitting) return;
+        Submitting = true;
         try
         {
-            Selected = await ProductionPlans.CreateAsync(new(Input.PlanNumber, Input.CustomerOrderId, Input.MachineId, Input.PlannedCompletionDate), await CurrentActorAsync());
+            var created = await ProductionPlans.CreateAsync(new(Input.PlanNumber, Input.CustomerOrderId, Input.MachineId, Input.PlannedCompletionDate), await CurrentActorAsync());
             Message = "Production plan and material requirements created."; MessageKind = StatusMessage.MessageKind.Success;
             await ReloadAsync();
-            Selected = Plans.Single(x => x.Id == Selected.Id);
+            // SingleOrDefault, not Single: the reloaded list is a fresh read, and a plan that has
+            // gone away between the two must not take the page down with an exception.
+            Selected = Plans.SingleOrDefault(x => x.Id == created.Id);
         }
         catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        finally { Submitting = false; }
     }
 
     private async Task TransitionAsync()
     {
-        if (Selected is null || NextStatus is null) return;
+        if (Selected is null || NextStatus is null || Submitting) return;
+        Submitting = true;
         try
         {
-            Selected = await ProductionPlans.TransitionAsync(Selected.Id, new(NextStatus.Value, Selected.RowVersion), await CurrentActorAsync());
-            Message = $"Production plan moved to {Selected?.LifecycleStatus}."; MessageKind = StatusMessage.MessageKind.Success;
+            var moved = await ProductionPlans.TransitionAsync(Selected.Id, new(NextStatus.Value, Selected.RowVersion), await CurrentActorAsync());
+            Message = $"Production plan moved to {moved?.LifecycleStatus}."; MessageKind = StatusMessage.MessageKind.Success;
             Plans = await ProductionPlans.ListAsync();
-            if (Selected is not null) Selected = Plans.Single(x => x.Id == Selected.Id);
+            Selected = moved is null ? null : Plans.SingleOrDefault(x => x.Id == moved.Id);
         }
         catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        finally { Submitting = false; }
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
