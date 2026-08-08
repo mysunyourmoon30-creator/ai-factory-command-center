@@ -21,11 +21,39 @@
         </tbody></table>
     </div>
     <AuthorizeView Policy="@PolicyNames.CanManageMasterData"><Authorized Context="rawAuthorization">
-        <h2>Create raw material</h2>
+        <h2 class="h4 mt-4">Create raw material</h2>
+        @* Every field carries a real <label for>, not a placeholder. The second row used to be
+           three bare number boxes - no label, no placeholder - so which one was stock, which was
+           reserved and which was lead time was unguessable without reading the source. *@
         <EditForm Model="RawInput" OnValidSubmit="CreateRawAsync"><DataAnnotationsValidator /><ValidationSummary />
-            <div class="row g-2"><div class="col"><InputText class="form-control" @bind-Value="RawInput.Code" placeholder="Code" /></div><div class="col"><InputText class="form-control" @bind-Value="RawInput.Name" placeholder="Name" /></div><div class="col"><InputText class="form-control" @bind-Value="RawInput.Unit" /></div></div>
-            <div class="row g-2 mt-1"><div class="col"><InputNumber class="form-control" @bind-Value="RawInput.CurrentStock" /></div><div class="col"><InputNumber class="form-control" @bind-Value="RawInput.ReservedStock" /></div><div class="col"><InputNumber class="form-control" @bind-Value="RawInput.LeadTimeDays" /></div></div>
-            <button class="btn btn-primary mt-2" type="submit">Create</button>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label" for="raw-code">Code</label>
+                    <InputText id="raw-code" class="form-control" @bind-Value="RawInput.Code" placeholder="RM-011" />
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label" for="raw-name">Name</label>
+                    <InputText id="raw-name" class="form-control" @bind-Value="RawInput.Name" placeholder="Polymer Base B" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="raw-unit">Unit</label>
+                    <InputText id="raw-unit" class="form-control" @bind-Value="RawInput.Unit" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="raw-stock">Current stock</label>
+                    <InputNumber id="raw-stock" class="form-control" @bind-Value="RawInput.CurrentStock" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="raw-reserved">Reserved stock</label>
+                    <InputNumber id="raw-reserved" class="form-control" @bind-Value="RawInput.ReservedStock" />
+                    <div class="form-text">Already committed to active plans.</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="raw-lead">Lead time (days)</label>
+                    <InputNumber id="raw-lead" class="form-control" @bind-Value="RawInput.LeadTimeDays" />
+                </div>
+            </div>
+            <button class="btn btn-primary mt-3" type="submit">Create raw material</button>
         </EditForm>
     </Authorized></AuthorizeView>
 }
@@ -58,11 +86,33 @@ else
         </tbody></table>
     </div>
     <AuthorizeView Policy="@PolicyNames.CanManageMasterData"><Authorized Context="formulationAuthorization">
-        <h2>Create formulation</h2>
+        <h2 class="h4 mt-4">Create formulation</h2>
         <EditForm Model="FormulaInput" OnValidSubmit="CreateFormulaAsync"><DataAnnotationsValidator /><ValidationSummary />
-            <div class="row g-2"><div class="col"><InputText class="form-control" @bind-Value="FormulaInput.Code" placeholder="Code" /></div><div class="col"><InputText class="form-control" @bind-Value="FormulaInput.Name" placeholder="Name" /></div><div class="col"><InputNumber class="form-control" @bind-Value="FormulaInput.BatchSize" /></div></div>
-            <InputTextArea class="form-control mt-2" @bind-Value="FormulaInput.Materials" placeholder="RM-001:250, RM-002:150, RM-003:100" />
-            <button class="btn btn-primary mt-2" type="submit">Create</button>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label" for="formula-code">Code</label>
+                    <InputText id="formula-code" class="form-control" @bind-Value="FormulaInput.Code" placeholder="FM-006" />
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label" for="formula-name">Name</label>
+                    <InputText id="formula-name" class="form-control" @bind-Value="FormulaInput.Name" placeholder="Formulation 006" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="formula-batch">Batch size (kg)</label>
+                    <InputNumber id="formula-batch" class="form-control" @bind-Value="FormulaInput.BatchSize" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="formula-materials">Materials</label>
+                    <InputTextArea id="formula-materials" class="form-control" rows="2" @bind-Value="FormulaInput.Materials" placeholder="RM-001:250, RM-002:150, RM-003:100" />
+                    @* The format rule and the sum rule both used to be invisible until the server
+                       rejected the submission. *@
+                    <div class="form-text">
+                        Comma-separated <code>CODE:WEIGHT</code> pairs. The weights must add up to
+                        exactly the batch size above.
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-primary mt-3" type="submit">Create formulation</button>
         </EditForm>
     </Authorized></AuthorizeView>
 }
