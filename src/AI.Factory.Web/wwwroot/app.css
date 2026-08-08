@@ -8,38 +8,54 @@
  */
 
 :root {
-    /* Type scale - 1.200 (minor third) off a 1rem base, which keeps dense operational
-       tables readable without headings shouting over them. */
+    /* Type scale. The dense end (xs-lg) is unchanged - operational tables live there and were
+       already right. What was missing was a top end: the page title sat at 1.125rem, the same
+       size as a table caption, so no screen had a clear "you are here" anchor, and the KPI
+       figure - the whole reason a KPI tile exists - was barely larger than body copy. */
     --af-text-xs: 0.75rem;
     --af-text-sm: 0.875rem;
     --af-text-base: 1rem;
     --af-text-lg: 1.125rem;
-    --af-text-xl: 1.35rem;
-    --af-text-2xl: 1.62rem;
+    --af-text-xl: 1.25rem;
+    --af-text-2xl: 1.5rem;
+    --af-text-3xl: 1.75rem;
+    --af-text-4xl: 2.25rem;
 
     /* Spacing */
     --af-space-1: 0.25rem;
     --af-space-2: 0.5rem;
     --af-space-3: 0.75rem;
     --af-space-4: 1rem;
+    --af-space-5: 1.25rem;
     --af-space-6: 1.5rem;
     --af-space-8: 2rem;
 
-    /* Surface and line colours. Slightly warmer and lower-contrast than Bootstrap's
-       defaults, so a screen full of tables doesn't glare. */
+    /* Neutrals. Warmer and a touch higher-contrast than before: near-black body text reads as
+       deliberate, where the previous blue-grey read as a default. */
     --af-surface: #ffffff;
-    --af-surface-sunken: #f6f7f9;
-    --af-border: #dfe3e8;
-    --af-text: #1f2933;
-    --af-text-muted: #5b6773;
+    --af-surface-sunken: #f7f8fa;
+    --af-border: #e5e7eb;
+    --af-text: #111827;
+    --af-text-muted: #6b7280;
 
     /* One accent, used only where it means something: the active nav item, links, primary
-       actions. Status colours (danger/warning/success) stay Bootstrap's. */
-    --af-accent: #0b5ed7;
-    --af-accent-soft: rgb(11 94 215 / 9%);
+       actions. Status colours (danger/warning/success) stay Bootstrap's.
 
-    --af-radius: 0.5rem;
-    --af-shadow-sm: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 8%);
+       Indigo rather than the previous #0b5ed7, which was Bootstrap's own $blue-600 - the single
+       clearest signal that a UI is wearing its framework's defaults. */
+    --af-accent: #4f46e5;
+    --af-accent-strong: #4338ca;
+    --af-accent-soft: rgb(79 70 229 / 9%);
+
+    /* Two radii: cards can afford to be soft, controls cannot - a 14px button looks like a pill
+       that lost its nerve. */
+    --af-radius: 0.875rem;
+    --af-radius-sm: 0.5rem;
+
+    /* Softer and more layered. The old shadow paired a 1px border with two hard drop shadows,
+       which is the Bootstrap-4 card look; one or the other, not both. */
+    --af-shadow-sm: 0 1px 2px rgb(16 24 40 / 5%);
+    --af-shadow-md: 0 1px 3px rgb(16 24 40 / 6%), 0 8px 24px -8px rgb(16 24 40 / 10%);
 
     /* Bootstrap overrides - these cascade into every Bootstrap component. */
     --bs-body-font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans Thai", sans-serif;
@@ -47,9 +63,10 @@
     --bs-body-color: var(--af-text);
     --bs-body-bg: var(--af-surface-sunken);
     --bs-border-color: var(--af-border);
-    --bs-border-radius: var(--af-radius);
-    --bs-link-color: #0b5ed7;
-    --bs-link-hover-color: #094db1;
+    --bs-border-radius: var(--af-radius-sm);
+    --bs-link-color: var(--af-accent);
+    --bs-link-hover-color: var(--af-accent-strong);
+    --bs-focus-ring-color: var(--af-accent-soft);
 }
 
 /*
@@ -58,20 +75,24 @@
  * attribute on <html> before first paint.
  */
 [data-bs-theme="dark"] {
-    --af-surface: #1c2128;
-    --af-surface-sunken: #12161c;
-    --af-border: #303842;
-    --af-text: #e3e7ec;
-    --af-text-muted: #97a3b1;
-    --af-accent: #74a9ff;
-    --af-accent-soft: rgb(116 169 255 / 14%);
-    --af-shadow-sm: 0 1px 2px rgb(0 0 0 / 40%), 0 1px 3px rgb(0 0 0 / 30%);
+    --af-surface: #191b23;
+    --af-surface-sunken: #0f1117;
+    --af-border: #2a2e3a;
+    --af-text: #e8eaf0;
+    --af-text-muted: #98a0b0;
+    /* Indigo-300 rather than the light theme's indigo-600: the same hue at a contrast that
+       survives a dark surface. */
+    --af-accent: #a5b4fc;
+    --af-accent-strong: #c7d2fe;
+    --af-accent-soft: rgb(165 180 252 / 14%);
+    --af-shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+    --af-shadow-md: 0 1px 3px rgb(0 0 0 / 45%), 0 8px 24px -8px rgb(0 0 0 / 55%);
 
     --bs-body-color: var(--af-text);
     --bs-body-bg: var(--af-surface-sunken);
     --bs-border-color: var(--af-border);
-    --bs-link-color: #74a9ff;
-    --bs-link-hover-color: #9cc2ff;
+    --bs-link-color: var(--af-accent);
+    --bs-link-hover-color: var(--af-accent-strong);
     --bs-secondary-color: var(--af-text-muted);
 }
 
@@ -102,16 +123,59 @@ body {
 /* ---------- Headings ---------- */
 
 h1, .h1 {
-    font-size: var(--af-text-2xl);
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-size: var(--af-text-3xl);
+    font-weight: 650;
+    letter-spacing: -0.02em;
     margin-bottom: var(--af-space-4);
 }
 
+/* Section headings drop from 1.35rem to 1.25rem so the page title clearly outranks them. Every
+   page writes these as <h2 class="h4">, so the class and the element have to agree. */
 h2, .h2, h3, .h3, h4, .h4 {
     font-size: var(--af-text-xl);
     font-weight: 600;
-    letter-spacing: -0.005em;
+    letter-spacing: -0.01em;
+}
+
+/* ---------- Buttons ----------
+   Bootstrap compiles .btn-primary's colours in as literals rather than reading --bs-primary,
+   so the accent has to be pushed in through the button's own variables. */
+
+.btn {
+    font-weight: 500;
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--af-accent);
+    --bs-btn-border-color: var(--af-accent);
+    --bs-btn-hover-bg: var(--af-accent-strong);
+    --bs-btn-hover-border-color: var(--af-accent-strong);
+    --bs-btn-active-bg: var(--af-accent-strong);
+    --bs-btn-active-border-color: var(--af-accent-strong);
+    --bs-btn-disabled-bg: var(--af-accent);
+    --bs-btn-disabled-border-color: var(--af-accent);
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--af-accent);
+    --bs-btn-border-color: var(--af-accent);
+    --bs-btn-hover-bg: var(--af-accent);
+    --bs-btn-hover-border-color: var(--af-accent);
+    --bs-btn-active-bg: var(--af-accent);
+    --bs-btn-active-border-color: var(--af-accent);
+}
+
+/* Dark theme's accent is a light indigo, so white-on-accent would be unreadable. */
+[data-bs-theme="dark"] .btn-primary {
+    --bs-btn-color: #1b1f2a;
+    --bs-btn-hover-color: #1b1f2a;
+    --bs-btn-active-color: #1b1f2a;
+    --bs-btn-disabled-color: #1b1f2a;
+}
+
+[data-bs-theme="dark"] .btn-outline-primary {
+    --bs-btn-hover-color: #1b1f2a;
+    --bs-btn-active-color: #1b1f2a;
 }
 
 h1:focus {
@@ -140,6 +204,24 @@ h1:focus {
 
 .table > tbody > tr > td {
     vertical-align: middle;
+}
+
+/*
+ * Cells do not wrap, at any width. Browsers are entitled to break after a hyphen, so an order
+ * number in a narrow column rendered as "SO-" / "DEMO-" / "001" stacked over three lines - an
+ * identifier split into pieces reads as three different things. Tables that outgrow their column
+ * scroll inside .table-responsive instead, which is what that wrapper exists for.
+ */
+.table > thead > tr > th,
+.table > tbody > tr > td {
+    white-space: nowrap;
+}
+
+/* The one genuine exception: an opaque 30-character correlation id has no natural break point,
+   so it is allowed to wrap rather than setting the audit table's width on its own. */
+.table > tbody > tr > td.text-break {
+    white-space: normal;
+    word-break: break-all;
 }
 
 /* Wide tables scroll inside their own container instead of pushing the page sideways. */
@@ -184,31 +266,30 @@ h1:focus {
     }
 
     /*
-     * Cells must NOT wrap on phones. Letting them wrap was the wrong trade: an eight-column
-     * numeric table squeezed into 375px does not become readable, it becomes a column of single
-     * characters - headers reading "RE QUI RE D DA TE" and quantities broken as "5,0 00. 00 0".
-     * Keeping every cell on one line pushes the table past the viewport, which is precisely what
-     * .table-responsive's overflow is for, and the full-bleed margins above mean that scroll uses
-     * the whole screen. Narrow tables still fit and never scroll.
+     * The no-wrap rule is now global (see the Tables section above) rather than a phone-only
+     * exception. It started here, because letting cells wrap on a 375px screen turned an
+     * eight-column numeric table into a column of single characters - headers reading
+     * "RE QUI RE D DA TE" and quantities broken as "5,0 00. 00 0" - and the same reasoning
+     * applies at every width. The full-bleed margins above are what make the resulting scroll
+     * usable on a phone.
      */
-    .table > thead > tr > th,
-    .table > tbody > tr > td {
-        white-space: nowrap;
-    }
-
-    /* The one genuine exception: an opaque 30-character correlation id has no natural break, so
-       it is allowed to wrap rather than setting the audit table's width on its own. */
-    .table > tbody > tr > td.text-break {
-        white-space: normal;
-        word-break: break-all;
-    }
 }
 
 /* ---------- Cards ---------- */
 
+/* Shadow instead of a border, not both. In dark mode a shadow alone is invisible against the
+   canvas, so there the border comes back and the shadow does the quieter job. */
 .card {
-    border-color: var(--af-border);
+    border-color: transparent;
     border-radius: var(--af-radius);
+    box-shadow: var(--af-shadow-md);
+}
+
+[data-bs-theme="dark"] .card {
+    border-color: var(--af-border);
+}
+
+.table-responsive {
     box-shadow: var(--af-shadow-sm);
 }
 

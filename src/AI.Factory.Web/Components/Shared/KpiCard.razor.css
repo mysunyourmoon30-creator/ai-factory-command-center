@@ -9,11 +9,16 @@
     align-items: flex-start;
     gap: var(--af-space-3);
     height: 100%;
-    padding: var(--af-space-3);
-    border: 1px solid var(--af-border);
+    padding: var(--af-space-5);
+    border: 1px solid transparent;
     border-radius: var(--af-radius);
     background: var(--af-surface);
-    box-shadow: var(--af-shadow-sm);
+    box-shadow: var(--af-shadow-md);
+}
+
+/* A shadow alone disappears against a dark canvas, so the border earns its place there. */
+[data-bs-theme="dark"] .kpi {
+    border-color: var(--af-border);
 }
 
 /* Linked tiles must not look like body copy, and must show they are actionable. */
@@ -40,9 +45,9 @@
     display: grid;
     place-items: center;
     flex-shrink: 0;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: var(--af-radius);
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--af-radius-sm);
     background: var(--af-surface-sunken);
     color: var(--af-text-muted);
 }
@@ -59,12 +64,15 @@
     color: var(--af-text-muted);
 }
 
+/* The figure is the reason the tile exists; at 1.62rem it was barely larger than body copy and
+   the label competed with it. */
 .kpi-value {
-    font-size: var(--af-text-2xl);
+    font-size: var(--af-text-4xl);
     font-weight: 600;
     /* The whole point of a KPI row is comparing figures down a column. */
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
 }
 
 .kpi-caption {
@@ -73,6 +81,16 @@
 }
 
 /* ---------- Tones ---------- */
+
+/*
+ * Seven tiles of identical weight meant "Critical Risks: 2" read exactly like "Customer Orders:
+ * 10". Tone now also puts a bar down the leading edge, so a screenful of KPIs has somewhere for
+ * the eye to land before it reads a single label. Still driven by the value - a zero stays
+ * neutral - so the emphasis tracks the data rather than decorating it.
+ */
+.kpi-danger {
+    box-shadow: inset 3px 0 0 #dc3545, var(--af-shadow-md);
+}
 
 .kpi-danger .kpi-icon {
     background: rgb(220 53 69 / 12%);
@@ -83,6 +101,10 @@
     color: #dc3545;
 }
 
+.kpi-warning {
+    box-shadow: inset 3px 0 0 #f0ad00, var(--af-shadow-md);
+}
+
 .kpi-warning .kpi-icon {
     background: rgb(255 193 7 / 18%);
     color: #b8860b;
@@ -91,4 +113,15 @@
 .kpi-success .kpi-icon {
     background: rgb(25 135 84 / 12%);
     color: #198754;
+}
+
+/* The inset bar has to survive the hover ring, which otherwise replaces box-shadow wholesale. */
+.kpi-danger.kpi-link:hover,
+.kpi-danger.kpi-link:focus-visible {
+    box-shadow: inset 3px 0 0 #dc3545, 0 0 0 1px var(--af-accent);
+}
+
+.kpi-warning.kpi-link:hover,
+.kpi-warning.kpi-link:focus-visible {
+    box-shadow: inset 3px 0 0 #f0ad00, 0 0 0 1px var(--af-accent);
 }
