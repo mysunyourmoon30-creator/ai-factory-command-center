@@ -94,7 +94,12 @@ builder.Services.AddRateLimiter(options =>
 });
 builder.Services.AddAiFactoryAuthorization();
 builder.Services.AddSignalR();
-builder.Services.AddSingleton<IMachineUpdateNotifier, SignalRMachineUpdateNotifier>();
+// Still registered after AddInfrastructure, so it still overrides the no-op default - that order
+// is what matters and has not changed. Two lines rather than one because the Machine Monitoring
+// page resolves the concrete type to subscribe to its MachineUpdated event, and both registrations
+// must hand back the same singleton instance.
+builder.Services.AddSingleton<SignalRMachineUpdateNotifier>();
+builder.Services.AddSingleton<IMachineUpdateNotifier>(services => services.GetRequiredService<SignalRMachineUpdateNotifier>());
 
 var app = builder.Build();
 

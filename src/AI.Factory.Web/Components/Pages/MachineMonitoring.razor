@@ -1,32 +1,23 @@
 @page "/machine-monitoring"
 @attribute [Authorize]
-@using Microsoft.AspNetCore.SignalR.Client
+@using AI.Factory.Web.Realtime
 @inject IMachineService Machines
-@inject NavigationManager Navigation
+@inject SignalRMachineUpdateNotifier MachineUpdates
 @inject AuthenticationStateProvider AuthenticationStateProvider
-@implements IAsyncDisposable
+@implements IDisposable
 
 <PageTitle>Machine Monitoring</PageTitle>
 
-@* The live channel is a supplement to the data, not a precondition for it. When it is down the
-   readings below are still real - just no longer arriving on their own - so the banner says which
-   of those two situations the operator is in rather than leaving them to guess from a stale clock. *@
-<div class="d-flex align-items-center gap-2 mb-3" role="status" aria-live="polite">
-    <span class="badge @LiveBadgeClass">@LiveLabel</span>
-    <span class="text-muted small">@LiveExplanation</span>
-    @if (Live == LiveState.Unavailable)
-    {
-        <button class="btn btn-sm btn-outline-secondary" @onclick="RetryLiveAsync" disabled="@Retrying">
-            @(Retrying ? "Retrying..." : "Retry")
-        </button>
-    }
-</div>
+<p class="text-muted small mb-3" role="status" aria-live="polite">
+    Readings update on their own as machines report. Last refreshed
+    @LastRefreshed.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture).
+</p>
 
 <StatusMessage Message="@Message" Kind="@MessageKind" />
 
 @* Machines stay in code order rather than sorting the worst one to the front: there are exactly
    three of them and they never change, so an operator learns where each card sits. Attention is
-   drawn with a border instead, which does not move the card out from under the cursor mid-push. *@
+   drawn with a border instead, which does not move the card out from under the cursor mid-update. *@
 <div class="row g-3" aria-live="polite">
     @foreach (var machine in MachineList)
     {
@@ -88,7 +79,7 @@
             <div class="col-md-3"><label class="form-label" for="simulate-temperature">Temperature (°C)</label><InputNumber id="simulate-temperature" class="form-control" @bind-Value="Input.Temperature" /></div>
             <div class="col-md-3"><label class="form-label" for="simulate-speed">Speed</label><InputNumber id="simulate-speed" class="form-control" @bind-Value="Input.Speed" /></div>
         </div>
-        <button class="btn btn-primary mt-2" type="submit">Update</button>
+        <button class="btn btn-primary mt-2" type="submit" disabled="@Submitting">@(Submitting ? "Updating..." : "Update")</button>
         <button class="btn btn-outline-secondary mt-2" type="button" @onclick="() => SelectedForSimulate = null">Cancel</button>
     </EditForm>
 }
@@ -99,118 +90,43 @@
     private SimulateInput Input = new();
     private string? Message;
     private StatusMessage.MessageKind MessageKind = StatusMessage.MessageKind.Info;
-    private HubConnection? _hubConnection;
-    private bool Retrying;
+    private bool Submitting;
+    private DateTime LastRefreshed;
+    private bool _subscribed;
 
-    private enum LiveState { Connecting, Live, Reconnecting, Unavailable }
-    private LiveState Live = LiveState.Connecting;
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
 
-    protected override async Task OnInitializedAsync()
+    /// <summary>
+    /// Subscribing here rather than in OnInitializedAsync because this runs only once the circuit
+    /// is live — the prerender pass never reaches it, so a prerendered instance cannot leave a
+    /// subscription behind on the singleton notifier.
+    /// </summary>
+    protected override void OnAfterRender(bool firstRender)
     {
-        await ReloadAsync();
-        await ConnectAsync();
+        if (!firstRender || _subscribed) return;
+        MachineUpdates.MachineUpdated += OnMachineUpdatedAsync;
+        _subscribed = true;
     }
 
     /// <summary>
-    /// Starting the hub used to be awaited unguarded, so any failure to reach it threw straight out
-    /// of component initialization and the whole page returned HTTP 500 — even though the machine
-    /// readings on the line above had already loaded successfully. An untrusted development
-    /// certificate is what trips it on this machine; a reverse proxy that will not upgrade
-    /// WebSockets does exactly the same thing in production. The page must render its data whether
-    /// or not the live channel comes up.
+    /// The page used to open a SignalR HubConnection back to this same server's [Authorize] hub.
+    /// It renders on the server, so there was no browser to supply the auth cookie and every
+    /// negotiate returned 401 — live updates had never worked for anyone (finding G7). The
+    /// notifier that feeds the hub is a singleton in this process, so the page just listens to it
+    /// directly. MachineHub is untouched and still broadcasts to genuinely remote clients.
     /// </summary>
-    private async Task ConnectAsync()
+    private Task OnMachineUpdatedAsync(MachineDto updated) => InvokeAsync(() =>
     {
-        var connection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/hubs/machines"))
-            .WithAutomaticReconnect()
-            .Build();
+        MachineList = MachineList.Select(x => x.Id == updated.Id ? updated : x).ToArray();
+        LastRefreshed = updated.LastUpdated;
+        StateHasChanged();
+    });
 
-        connection.On<MachineDto>("MachineUpdated", updated =>
-        {
-            MachineList = MachineList.Select(x => x.Id == updated.Id ? updated : x).ToArray();
-            return InvokeAsync(StateHasChanged);
-        });
-
-        // Without these the badge never moved off its initial value: it was computed from the
-        // connection but nothing re-rendered when the connection changed, so a page that had been
-        // live for an hour still read "Connecting...".
-        connection.Reconnecting += _ =>
-        {
-            Live = LiveState.Reconnecting;
-            return InvokeAsync(StateHasChanged);
-        };
-
-        connection.Reconnected += _ => InvokeAsync(async () =>
-        {
-            // Values may have moved while the channel was down, and no push was queued for us.
-            try { await ReloadAsync(); } catch (Exception) { /* keep the last known readings */ }
-            Live = LiveState.Live;
-            StateHasChanged();
-        });
-
-        // Closed also fires when we dispose the connection ourselves, including the disposal inside
-        // Retry — without the identity check that late event would flip a freshly connected page
-        // back to "Not live".
-        connection.Closed += _ =>
-        {
-            if (!ReferenceEquals(_hubConnection, connection)) return Task.CompletedTask;
-            Live = LiveState.Unavailable;
-            return InvokeAsync(StateHasChanged);
-        };
-
-        _hubConnection = connection;
-        try
-        {
-            await connection.StartAsync();
-            Live = LiveState.Live;
-        }
-        catch (Exception)
-        {
-            Live = LiveState.Unavailable;
-        }
+    private async Task ReloadAsync()
+    {
+        MachineList = await Machines.ListAsync();
+        LastRefreshed = MachineList.Count == 0 ? default : MachineList.Max(x => x.LastUpdated);
     }
-
-    private async Task RetryLiveAsync()
-    {
-        if (Retrying) return;
-        Retrying = true;
-        try
-        {
-            var previous = _hubConnection;
-            _hubConnection = null;
-            if (previous is not null) await previous.DisposeAsync();
-            Live = LiveState.Connecting;
-            await ReloadAsync();
-            await ConnectAsync();
-        }
-        finally { Retrying = false; }
-    }
-
-    private string LiveLabel => Live switch
-    {
-        LiveState.Live => "Live",
-        LiveState.Reconnecting => "Reconnecting",
-        LiveState.Unavailable => "Not live",
-        _ => "Connecting"
-    };
-
-    private string LiveBadgeClass => Live switch
-    {
-        LiveState.Live => "text-bg-success",
-        LiveState.Unavailable => "text-bg-warning",
-        _ => "text-bg-secondary"
-    };
-
-    private string LiveExplanation => Live switch
-    {
-        LiveState.Live => "Readings update on their own as machines report.",
-        LiveState.Reconnecting => "Reconnecting — readings below may be a few seconds behind.",
-        LiveState.Unavailable => "Showing the last known readings. They will not update until the live channel is back.",
-        _ => "Opening the live channel."
-    };
-
-    private async Task ReloadAsync() => MachineList = await Machines.ListAsync();
 
     private void SelectForSimulate(MachineDto machine)
     {
@@ -220,7 +136,8 @@
 
     private async Task SimulateAsync()
     {
-        if (SelectedForSimulate is null) return;
+        if (SelectedForSimulate is null || Submitting) return;
+        Submitting = true;
         try
         {
             var updated = await Machines.SimulateUpdateAsync(
@@ -233,6 +150,7 @@
             SelectedForSimulate = null;
         }
         catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        finally { Submitting = false; }
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
@@ -257,11 +175,8 @@
         [System.ComponentModel.DataAnnotations.Range(0, double.MaxValue)] public decimal Speed { get; set; }
     }
 
-    public async ValueTask DisposeAsync()
+    public void Dispose()
     {
-        if (_hubConnection is not null)
-        {
-            await _hubConnection.DisposeAsync();
-        }
+        if (_subscribed) MachineUpdates.MachineUpdated -= OnMachineUpdatedAsync;
     }
 }

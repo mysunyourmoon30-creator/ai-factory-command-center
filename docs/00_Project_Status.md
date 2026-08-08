@@ -157,7 +157,7 @@ and are closed; this series covers the other eight routes plus the defects that 
 | G4 | `/orders/new` | No in-flight guard on submit. Double-clicking Create fired the command twice; the unique index prevented an actual duplicate, but the operator saw "Order number already exists" for an order they had just created. | Low | **Closed (C1)** |
 | G5 | `/api/admin/users` | The activation endpoint had no exception mapping, unlike every other write endpoint. Antiforgery *is* covered (`[FromForm]` makes `UseAntiforgery()` validate automatically) — the gap was exception-to-status only. | Low | **Closed (C1)** |
 | G6 | `/machine-monitoring` | The page returned **HTTP 500 and rendered nothing**. `OnInitializedAsync` awaited `_hubConnection.StartAsync()` unguarded, so any failure to reach the hub threw out of component initialization — even though the machine readings on the line above had already loaded. The page now renders its data either way, under a banner that says whether readings are live or last-known, with a Retry. | High | **Closed (C2)** |
-| G7 | `/machine-monitoring` | **Live push has never worked, and the previously recorded cause was wrong.** See the correction below. | High | **Open** |
+| G7 | `/machine-monitoring` | **Live push had never worked, and the previously recorded cause was wrong.** See the correction below. | High | **Closed (C2b)** |
 | G8 | `/machine-monitoring` | The connection badge was computed from the connection but nothing re-rendered when the connection changed, so it read "Connecting…" forever. `WithAutomaticReconnect()` was configured with no `Reconnecting`/`Reconnected`/`Closed` handlers. | Medium | **Closed (C2)** |
 | G9 | `/machine-monitoring` | `Running` and `Stopped` rendered as identical plain text inside a `<dl>`; the alert badge carried the only colour on the card. On the one screen whose requirement is "readable within seconds", the running state was the hardest thing to read. Now a coloured pill, with the card bordered by its computed alert status. | Medium | **Closed (C2)** |
 
@@ -184,21 +184,38 @@ only during prerender: the page reports **Not live**, and the log shows two nego
 prerender and circuit — both 401. So this is not a local-environment artefact and not
 prerender-only: **the live-update feature has never functioned for any user, in any environment.**
 
-Deliberately left open rather than fixed inside C2, because the two candidate fixes differ in
-architecture, not just in size:
+Two fixes were possible. Forwarding the auth cookie into the `HubConnection` would have kept SignalR
+as the transport — what `MachineHub`'s own XML comment assumes — but requires capturing the session
+cookie during static SSR and holding it in circuit state, which is fragile and puts an auth cookie
+somewhere it does not belong. **Rejected.**
 
-- **Forward the auth cookie into the `HubConnection`** — keeps SignalR as the transport, which is
-  what `MachineHub`'s own XML comment assumes ("the Blazor client's
-  `HubConnectionBuilder.WithAutomaticReconnect()`"). Requires capturing the session cookie during
-  static SSR and holding it in circuit state, which is fragile and puts an auth cookie somewhere it
-  does not belong.
-- **Observe the notifier in-process** — the page already runs in the same process as
-  `SignalRMachineUpdateNotifier`, so it can subscribe to a plain C# event rather than dialing its
-  own server over HTTP. Smaller and more robust, but the SignalR round trip stops being how *this*
-  UI gets its updates (the hub itself stays, unchanged and still broadcasting).
+**Chosen (C2b): observe the notifier in-process.** The page already runs in the same process as
+`SignalRMachineUpdateNotifier`, so it subscribes to a plain `event Func<MachineDto, Task>` instead
+of dialing its own server over HTTP. `MachineHub` is untouched and still broadcasts to genuinely
+remote clients, so the locked Module 10 SignalR requirement is unaffected — only the page's own
+loopback client is gone, along with a guaranteed 401 on every page load.
 
-C2's fix stands either way: whichever is chosen, the page must still render when the channel is
-down.
+Notes on the implementation:
+
+- The subscription is taken in `OnAfterRender(firstRender)`, not `OnInitializedAsync`. The
+  prerender pass never reaches `OnAfterRender`, so a prerendered instance cannot leave a
+  subscription dangling on a singleton.
+- `NotifyAsync` walks the invocation list and swallows per-subscriber failures: subscribers are
+  Blazor circuits, and one that has been torn down must not fail the write that triggered the
+  notification nor stop the remaining viewers being told.
+- `IMachineUpdateNotifier` is still registered **after** `AddInfrastructure`, so it still overrides
+  the no-op default — the registration order on the do-not-change list is intact. It is now two
+  lines rather than one because the page resolves the concrete type, and both registrations must
+  return the same singleton.
+
+**Verified end to end**, which had never previously been possible: with the page open in a signed-in
+browser, a machine update pushed through a *separate* channel (`POST /api/machines/1/simulate` over
+curl) moved the open page with no navigation and no reload — Machine-01 went 72.0 °C / Normal →
+88.0 °C / Warning, the card border turned amber, and "Last refreshed" advanced. The server log for
+that run contains **zero** `/hubs/machines/negotiate` requests, where every previous page load
+produced two 401s. Machine-01 was then restored to its canonical 72.0 / 80.0 / Normal.
+
+C2's fix stands regardless: the page must still render if its update channel is unavailable.
 
 Not a finding: `MaterialManagement.razor:171` keeps its narrower catch filter. `IMasterDataService`
 and `IMaterialRequirementQueryService` take no `ClaimsPrincipal actor` (the documented convention
