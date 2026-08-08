@@ -105,7 +105,9 @@ public sealed class ReportExportService(
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var search = query.Search.Trim();
-            rows = rows.Where(x => x.Username.Contains(search) || x.EntityName.Contains(search));
+            // Must stay identical to AuditLogService.ListAsync's clause, or the export stops
+            // matching the screen it is exported from.
+            rows = rows.Where(x => x.Username.Contains(search) || x.EntityName.Contains(search) || x.RequestId.Contains(search));
         }
         if (!string.IsNullOrWhiteSpace(query.Action))
         {

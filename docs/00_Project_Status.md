@@ -188,6 +188,12 @@ and are closed; this series covers the other eight routes plus the defects that 
 | G29 | `/ai-copilot` | System data and model suggestions rendered as indistinguishable bulleted lists. Affected Orders is now labelled "from system data", Recommended Actions "AI suggestion" with a line saying it came from the model and not a business rule. | Medium | **Closed (C8)** |
 | G30 | `/ai-copilot` | No `aria-live` on the thinking/result region, and no `maxlength` — a 2,000-character question travelled to the server purely to be rejected against `MaxQuestionLength`. | Low | **Closed (C8)** |
 
+| G31 | `/audit-administration` | **`RequestId` was dropped by the table** — already in `AuditLogDto`, already a column in the CSV export, and the one field that ties several rows to a single request. The screen and its own export disagreed. Now shown, and searchable: `AuditLogService` and `ReportExportService.ApplyAuditLogFilter` both match it. **Verified** by searching `0HNNLEPP1KM1K`, which returned exactly the one row bearing that id. | Medium | **Closed (C9)** |
+| G32 | `/audit-administration` | `AuditLogQuery` has carried `FromDate`/`ToDate` all along and the export endpoint has accepted them all along; only the screen never offered them. On an append-only table, "what happened on the day of the incident" is the first question asked. Added, and carried into the export URL. | Medium | **Closed (C9)** |
+| G33 | `/audit-administration` | Showed "Page 1" with no total while `/orders` in the same app showed "of N", and `TotalCount` was right there. Now "Page 1 of 6 — 108 entries". | Low | **Closed (C9)** |
+| G34 | `/audit-administration` | Deactivation was a single click, on a screen where it now ends the account's live session — and nothing stops an Admin doing it to themselves. Two steps, with the consequence named. | Medium | **Closed (C9)** |
+| G35 | `/audit-administration` | The demo-user query ran on page load even when the Audit tab was showing. A3 gated it by role; this gates it by tab as well. | Low | **Closed (C9)** |
+
 #### G22 — reordering proved, with the numbers proved unchanged
 
 The canonical dataset cannot demonstrate this on its own: its only shortage is on **RM-001**, which

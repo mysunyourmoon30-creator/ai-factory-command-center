@@ -16,7 +16,11 @@ public sealed class AuditLogService(AppDbContext dbContext) : IAuditLogService
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var search = query.Search.Trim();
-            logs = logs.Where(x => x.Username.Contains(search) || x.EntityName.Contains(search));
+            // RequestId is included so an operator can pull every row belonging to one request -
+            // the point of having a correlation id at all. Kept in step with the identical clause
+            // in ReportExportService.ApplyAuditLogFilter, which filters the report *view*; the two
+            // are separate types and so cannot share the expression.
+            logs = logs.Where(x => x.Username.Contains(search) || x.EntityName.Contains(search) || x.RequestId.Contains(search));
         }
         if (!string.IsNullOrWhiteSpace(query.Action))
         {

@@ -8,8 +8,8 @@
 <StatusMessage Message="@Message" Kind="@MessageKind" />
 
 <ul class="nav nav-tabs mb-3" role="tablist">
-    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "audit")" class="nav-link @(Tab == "audit" ? "active" : null)" @onclick='() => Tab = "audit"'>Audit Log</button></li>
-    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "users")" class="nav-link @(Tab == "users" ? "active" : null)" @onclick='() => Tab = "users"'>Demo User Management</button></li>
+    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "audit")" class="nav-link @(Tab == "audit" ? "active" : null)" @onclick='() => SwitchTabAsync("audit")'>Audit Log</button></li>
+    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "users")" class="nav-link @(Tab == "users" ? "active" : null)" @onclick='() => SwitchTabAsync("users")'>Demo User Management</button></li>
 </ul>
 
 @if (Tab == "audit")
@@ -20,28 +20,59 @@
             <div class="row g-3 mb-2">
                 <div class="col-6 col-md-auto"><KpiCard Label="Matching Entries" Value="@AuditPage.TotalCount" Icon="admin" /></div>
             </div>
-            <div class="row g-2 mb-2">
-                <div class="col-md-3"><label class="form-label">Search (user or entity)</label><input class="form-control" @bind="SearchInput" /></div>
-                <div class="col-md-3"><label class="form-label">Action</label><input class="form-control" @bind="ActionInput" placeholder="e.g. Login Success" /></div>
-                <div class="col-md-auto align-self-end"><button class="btn btn-outline-primary" @onclick="() => ReloadAuditAsync(1)">Filter</button></div>
+            <form class="row g-2 mb-2" @onsubmit="() => ReloadAuditAsync(1)" @onsubmit:preventDefault>
+                <div class="col-md-3">
+                    <label class="form-label" for="audit-search">Search</label>
+                    <input id="audit-search" class="form-control" @bind="SearchInput" placeholder="User, entity or request id" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="audit-action">Action</label>
+                    <input id="audit-action" class="form-control" @bind="ActionInput" placeholder="e.g. Login Success" />
+                </div>
+                @* AuditLogQuery has carried FromDate/ToDate all along, and the export endpoint has
+                   accepted them all along; only the screen never offered them. On an append-only
+                   table "what happened on the day of the incident" is the first question asked. *@
+                <div class="col-md-2">
+                    <label class="form-label" for="audit-from">From</label>
+                    <input id="audit-from" type="date" class="form-control" @bind="FromInput" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="audit-to">To</label>
+                    <input id="audit-to" type="date" class="form-control" @bind="ToInput" />
+                </div>
+                <div class="col-md-auto align-self-end"><button class="btn btn-outline-primary" type="submit">Filter</button></div>
+                <div class="col-md-auto align-self-end"><button class="btn btn-outline-secondary" type="button" @onclick="ClearFiltersAsync">Clear</button></div>
                 <div class="col-md-auto align-self-end"><a class="btn btn-outline-secondary" href="@AuditExportUrl" target="_blank" rel="noopener noreferrer">Export CSV</a></div>
-            </div>
+            </form>
             @if (AuditPage.Items.Count == 0)
             {
-                <div class="alert alert-light">No audit log entry matches this filter.</div>
+                <EmptyState Message="No audit log entry matches this filter." Hint="Widen the date range, or clear the filters to see everything recorded." />
             }
             else
             {
                 <div class="table-responsive">
                     <table class="table table-striped table-sm">
-                        <thead><tr><th scope="col">Username</th><th scope="col">Action</th><th scope="col">Entity</th><th scope="col">Result</th><th scope="col">Created</th></tr></thead>
-                        <tbody>@foreach (var log in AuditPage.Items) { <tr><td>@log.Username</td><td>@log.Action</td><td>@log.EntityName@(log.EntityId is not null ? $" #{log.EntityId}" : "")</td><td>@log.Result</td><td>@log.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)</td></tr> }</tbody>
+                        @* Request Id was already in the DTO and already in the CSV export; only the
+                           screen dropped it, which is the one field that ties several rows to a
+                           single request. *@
+                        <thead><tr><th scope="col">Created</th><th scope="col">Username</th><th scope="col">Action</th><th scope="col">Entity</th><th scope="col">Result</th><th scope="col">Request Id</th></tr></thead>
+                        <tbody>@foreach (var log in AuditPage.Items) {
+                            <tr>
+                                <td>@log.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)</td>
+                                <td>@log.Username</td>
+                                <td>@log.Action</td>
+                                <td>@log.EntityName@(log.EntityId is not null ? $" #{log.EntityId}" : "")</td>
+                                <td>@log.Result</td>
+                                <td class="font-monospace text-break" style="font-size: var(--af-text-xs);">@log.RequestId</td>
+                            </tr>
+                        }</tbody>
                     </table>
                 </div>
                 <div class="d-flex gap-2 align-items-center">
                     <button class="btn btn-sm btn-outline-secondary" disabled="@(AuditPage.Page <= 1)" @onclick="() => ReloadAuditAsync(AuditPage.Page - 1)">Previous</button>
-                    <span>Page @AuditPage.Page</span>
-                    <button class="btn btn-sm btn-outline-secondary" disabled="@(AuditPage.Page * AuditPage.PageSize >= AuditPage.TotalCount)" @onclick="() => ReloadAuditAsync(AuditPage.Page + 1)">Next</button>
+                    @* Was "Page 1" with no total, while /orders on the same app showed "of N". *@
+                    <span>Page @AuditPage.Page of @AuditTotalPages — @AuditPage.TotalCount entr@(AuditPage.TotalCount == 1 ? "y" : "ies")</span>
+                    <button class="btn btn-sm btn-outline-secondary" disabled="@(AuditPage.Page >= AuditTotalPages)" @onclick="() => ReloadAuditAsync(AuditPage.Page + 1)">Next</button>
                 </div>
             }
         </Authorized>
@@ -53,19 +84,48 @@ else
     <AuthorizeView Policy="@PolicyNames.CanManageUsers">
         <Authorized Context="manageAuthorization">
             <h2 class="h4">Demo User Management</h2>
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead><tr><th scope="col">Username</th><th scope="col">Roles</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
-                    <tbody>@foreach (var user in DemoUsers) {
-                        <tr>
-                            <td>@user.Username</td>
-                            <td>@string.Join(", ", user.Roles)</td>
-                            <td><span class="badge @(user.IsActive ? "text-bg-success" : "text-bg-secondary")">@(user.IsActive ? "Active" : "Inactive")</span></td>
-                            <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => ToggleActiveAsync(user)">@(user.IsActive ? "Deactivate" : "Activate")</button></td>
-                        </tr>
-                    }</tbody>
-                </table>
-            </div>
+            @if (DemoUsers.Count == 0)
+            {
+                <EmptyState Message="No demo user exists." Hint="Run the identity seeder to create the four demo accounts." />
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead><tr><th scope="col">Username</th><th scope="col">Roles</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
+                        <tbody>@foreach (var user in DemoUsers) {
+                            <tr>
+                                <td>@user.Username</td>
+                                <td>@string.Join(", ", user.Roles)</td>
+                                <td><span class="badge @(user.IsActive ? "text-bg-success" : "text-bg-secondary")">@(user.IsActive ? "Active" : "Inactive")</span></td>
+                                <td>
+                                    @* Deactivation now ends the account's live session at the next
+                                       security-stamp revalidation, so it is worth a second click -
+                                       especially since nothing stops an Admin doing it to
+                                       themselves. *@
+                                    @if (ConfirmingUserId == user.Id)
+                                    {
+                                        <div class="d-flex flex-column gap-1">
+                                            <span class="small">@ConfirmationText(user)</span>
+                                            <div class="d-flex gap-1">
+                                                <button class="btn btn-sm @(user.IsActive ? "btn-danger" : "btn-success")" @onclick="() => ToggleActiveAsync(user)">Confirm</button>
+                                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => ConfirmingUserId = null">Cancel</button>
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => ConfirmingUserId = user.Id"
+                                                aria-label="@($"{(user.IsActive ? "Deactivate" : "Activate")} {user.Username}")">
+                                            @(user.IsActive ? "Deactivate" : "Activate")
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }</tbody>
+                    </table>
+                </div>
+            }
         </Authorized>
         <NotAuthorized><div class="alert alert-warning">You do not have permission to manage demo users.</div></NotAuthorized>
     </AuthorizeView>
@@ -76,23 +136,38 @@ else
     private AuditLogPage AuditPage = new([], 1, 20, 0);
     private string SearchInput = "";
     private string ActionInput = "";
+    private DateTime? FromInput;
+    private DateTime? ToInput;
     private IReadOnlyCollection<DemoUser> DemoUsers = [];
+    private long? ConfirmingUserId;
     private string? Message;
     private StatusMessage.MessageKind MessageKind = StatusMessage.MessageKind.Info;
+    private int AuditTotalPages => Math.Max(1, (int)Math.Ceiling(AuditPage.TotalCount / (double)AuditPage.PageSize));
 
-    // Only load what this actor is actually allowed to see. Previously both calls ran
-    // unconditionally, so a Planner or Viewer opening this page still executed the audit-log
-    // and demo-user queries even though AuthorizeView hid every result (finding A3).
-    protected override async Task OnInitializedAsync()
+    // Only load what this actor is actually allowed to see, and only for the tab being shown.
+    // Both calls used to run unconditionally, so a Planner or Viewer opening this page still
+    // executed the audit-log and demo-user queries even though AuthorizeView hid every result
+    // (finding A3), and an Admin on the Audit tab still paid for the user query.
+    protected override async Task OnInitializedAsync() => await LoadTabAsync();
+
+    private async Task SwitchTabAsync(string tab)
+    {
+        if (Tab == tab) return;
+        Tab = tab;
+        Message = null;
+        ConfirmingUserId = null;
+        await LoadTabAsync();
+    }
+
+    private async Task LoadTabAsync()
     {
         var actor = await CurrentActorAsync();
 
-        if (actor.IsInRole(RoleNames.Admin) || actor.IsInRole(RoleNames.Manager))
+        if (Tab == "audit" && (actor.IsInRole(RoleNames.Admin) || actor.IsInRole(RoleNames.Manager)))
         {
             await ReloadAuditAsync(1);
         }
-
-        if (actor.IsInRole(RoleNames.Admin))
+        else if (Tab == "users" && actor.IsInRole(RoleNames.Admin))
         {
             DemoUsers = await AdminUsers.ListAsync(actor);
         }
@@ -102,10 +177,26 @@ else
         AuditPage = await AuditLogs.ListAsync(new AuditLogQuery(
             string.IsNullOrWhiteSpace(SearchInput) ? null : SearchInput,
             string.IsNullOrWhiteSpace(ActionInput) ? null : ActionInput,
+            FromInput,
+            ToInput,
             Page: page));
+
+    private async Task ClearFiltersAsync()
+    {
+        SearchInput = "";
+        ActionInput = "";
+        FromInput = null;
+        ToInput = null;
+        await ReloadAuditAsync(1);
+    }
+
+    private string ConfirmationText(DemoUser user) => user.IsActive
+        ? $"Deactivate {user.Username}? They lose access at the next revalidation, without signing out."
+        : $"Activate {user.Username}? They will be able to sign in again.";
 
     private async Task ToggleActiveAsync(DemoUser user)
     {
+        ConfirmingUserId = null;
         try
         {
             var actor = await CurrentActorAsync();
@@ -138,6 +229,14 @@ else
             if (!string.IsNullOrWhiteSpace(ActionInput))
             {
                 parameters.Add($"action={Uri.EscapeDataString(ActionInput.Trim())}");
+            }
+            if (FromInput is not null)
+            {
+                parameters.Add($"fromDate={FromInput.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}");
+            }
+            if (ToInput is not null)
+            {
+                parameters.Add($"toDate={ToInput.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}");
             }
 
             return parameters.Count == 0
