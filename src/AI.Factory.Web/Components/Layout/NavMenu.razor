@@ -1,68 +1,75 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">AI Factory</a>
-    </div>
+@*
+    Grouped by where a screen sits in the business flow rather than one flat list of nine
+    links, so the sidebar reads as the factory's workflow: what is planned, what is bought,
+    what is running.
+*@
+
+<div class="sidebar-brand">
+    <a class="brand-link" href="">
+        <span class="brand-mark" aria-hidden="true">AF</span>
+        <span class="brand-text">
+            <span class="brand-title">AI Factory</span>
+            <span class="brand-subtitle">Command Center</span>
+        </span>
+    </a>
 </div>
 
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
-        <div class="nav-item px-3">
+        <div class="nav-item">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                <NavIcon Name="dashboard" /><span>Dashboard</span>
             </NavLink>
         </div>
 
         <AuthorizeView>
             <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="materials">Materials</NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="orders">Customer Orders</NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="production-plans">Production Plans</NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="material-shortages">Material Shortage</NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="procurement">Procurement</NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="ai-copilot">AI Copilot</NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="machine-monitoring">Machine Monitoring</NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="audit-administration">Audit and Administration</NavLink>
-                </div>
+                <div class="nav-section">Planning</div>
+                <div class="nav-item"><NavLink class="nav-link" href="materials"><NavIcon Name="materials" /><span>Materials</span></NavLink></div>
+                <div class="nav-item"><NavLink class="nav-link" href="orders"><NavIcon Name="orders" /><span>Customer Orders</span></NavLink></div>
+                <div class="nav-item"><NavLink class="nav-link" href="production-plans"><NavIcon Name="plans" /><span>Production Plans</span></NavLink></div>
+
+                <div class="nav-section">Procurement</div>
+                <div class="nav-item"><NavLink class="nav-link" href="material-shortages"><NavIcon Name="shortage" /><span>Material Shortage</span></NavLink></div>
+                <div class="nav-item"><NavLink class="nav-link" href="procurement"><NavIcon Name="procurement" /><span>Procurement</span></NavLink></div>
+
+                <div class="nav-section">Operations</div>
+                <div class="nav-item"><NavLink class="nav-link" href="machine-monitoring"><NavIcon Name="machines" /><span>Machine Monitoring</span></NavLink></div>
+                <div class="nav-item"><NavLink class="nav-link" href="ai-copilot"><NavIcon Name="copilot" /><span>AI Copilot</span></NavLink></div>
+
+                <div class="nav-section">Administration</div>
+                <div class="nav-item"><NavLink class="nav-link" href="audit-administration"><NavIcon Name="admin" /><span>Audit &amp; Administration</span></NavLink></div>
             </Authorized>
         </AuthorizeView>
-
-        <AuthorizeView>
-            <Authorized Context="authenticationState">
-                <div class="nav-item px-3 text-white small">
-                    @authenticationState.User.Identity?.Name
-                </div>
-                <div class="nav-item px-3">
-                    <form method="post" action="/api/auth/logout" data-enhance="false">
-                        <AntiforgeryToken />
-                        <input type="hidden" name="ReturnUrl" value="/login" />
-                        <button class="nav-link btn btn-link" type="submit">Logout</button>
-                    </form>
-                </div>
-            </Authorized>
-            <NotAuthorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="login">Login</NavLink>
-                </div>
-            </NotAuthorized>
-        </AuthorizeView>
-
     </nav>
+
+    <AuthorizeView>
+        <Authorized Context="authenticationState">
+            <div class="nav-user">
+                <div class="nav-user-identity">
+                    <span class="nav-user-avatar" aria-hidden="true">@Initial(authenticationState.User.Identity?.Name)</span>
+                    <span class="nav-user-name">@authenticationState.User.Identity?.Name</span>
+                </div>
+                <form method="post" action="/api/auth/logout" data-enhance="false">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="ReturnUrl" value="/login" />
+                    <button class="nav-user-logout" type="submit">
+                        <NavIcon Name="logout" /><span>Sign out</span>
+                    </button>
+                </form>
+            </div>
+        </Authorized>
+        <NotAuthorized>
+            <div class="nav-user">
+                <NavLink class="nav-link" href="login">Login</NavLink>
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
 </div>
 
+@code {
+    private static string Initial(string? username) =>
+        string.IsNullOrWhiteSpace(username) ? "?" : username[..1].ToUpperInvariant();
+}

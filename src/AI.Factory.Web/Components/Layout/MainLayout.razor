@@ -1,4 +1,6 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navigation
 
 <div class="page">
     <div class="sidebar">
@@ -7,12 +9,23 @@
 
     <main>
         <div class="top-row px-4">
-            @* Plain onclick, not @onclick: the toggle must work during prerender and while the
-               Interactive Server circuit is reconnecting. See wwwroot/theme.js. *@
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="aiFactoryToggleTheme()"
-                    title="Switch between light and dark" aria-label="Switch between light and dark theme">
-                <span class="theme-icon-light" aria-hidden="true">&#x1F319;</span><span class="theme-icon-dark" aria-hidden="true">&#x2600;</span>
-            </button>
+            <div class="page-context">
+                @if (!string.IsNullOrEmpty(Meta.Section))
+                {
+                    <span class="page-section">@Meta.Section</span>
+                    <span class="page-separator" aria-hidden="true">/</span>
+                }
+                <span class="page-title">@Meta.Title</span>
+            </div>
+
+            <div class="top-actions">
+                @* Plain onclick, not @onclick: the toggle must work during prerender and while the
+                   Interactive Server circuit is reconnecting. See wwwroot/theme.js. *@
+                <button type="button" class="icon-button" onclick="aiFactoryToggleTheme()"
+                        title="Switch between light and dark" aria-label="Switch between light and dark theme">
+                    <span class="theme-icon-light" aria-hidden="true">&#x1F319;</span><span class="theme-icon-dark" aria-hidden="true">&#x2600;</span>
+                </button>
+            </div>
         </div>
 
         <article class="content px-4">
@@ -26,3 +39,26 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private PageMetadata.Entry Meta = PageMetadata.For("/");
+
+    protected override void OnInitialized()
+    {
+        UpdateMeta();
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    // The layout is not re-created on navigation, so the heading only follows the route if it
+    // is told to re-render.
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdateMeta();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateMeta() =>
+        Meta = PageMetadata.For("/" + Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0].TrimEnd('/'));
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

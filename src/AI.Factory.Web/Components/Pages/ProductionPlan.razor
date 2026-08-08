@@ -36,9 +36,9 @@
 @if (Plans.Count > 0)
 {
     <div class="row g-3 mb-2">
-        <div class="col-auto"><div class="card p-2"><div class="text-muted small">Normal</div><div class="fs-5">@Plans.Count(x => x.RiskStatus == RiskStatus.Normal)</div></div></div>
-        <div class="col-auto"><div class="card p-2"><div class="text-muted small">Warning</div><div class="fs-5">@Plans.Count(x => x.RiskStatus == RiskStatus.Warning)</div></div></div>
-        <div class="col-auto"><div class="card p-2"><div class="text-muted small">Critical</div><div class="fs-5">@Plans.Count(x => x.RiskStatus == RiskStatus.Critical)</div></div></div>
+        <div class="col-6 col-md-auto"><KpiCard Label="Normal" Value="@Plans.Count(x => x.RiskStatus == RiskStatus.Normal)" Tone="KpiCard.KpiTone.Success" Icon="plans" /></div>
+        <div class="col-6 col-md-auto"><KpiCard Label="Warning" Value="@Plans.Count(x => x.RiskStatus == RiskStatus.Warning)" Tone="KpiCard.KpiTone.Warning" Icon="shortage" /></div>
+        <div class="col-6 col-md-auto"><KpiCard Label="Critical" Value="@Plans.Count(x => x.RiskStatus == RiskStatus.Critical)" Tone="KpiCard.KpiTone.Danger" Icon="shortage" /></div>
     </div>
     <div class="d-flex gap-2 align-items-end mb-2">
         <div><label class="form-label">Filter by risk</label><select class="form-select" @bind="RiskFilter"><option value="">All</option><option value="Normal">Normal</option><option value="Warning">Warning</option><option value="Critical">Critical</option></select></div>

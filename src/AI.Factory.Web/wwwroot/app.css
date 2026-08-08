@@ -33,6 +33,11 @@
     --af-text: #1f2933;
     --af-text-muted: #5b6773;
 
+    /* One accent, used only where it means something: the active nav item, links, primary
+       actions. Status colours (danger/warning/success) stay Bootstrap's. */
+    --af-accent: #0b5ed7;
+    --af-accent-soft: rgb(11 94 215 / 9%);
+
     --af-radius: 0.5rem;
     --af-shadow-sm: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 8%);
 
@@ -58,6 +63,8 @@
     --af-border: #303842;
     --af-text: #e3e7ec;
     --af-text-muted: #97a3b1;
+    --af-accent: #74a9ff;
+    --af-accent-soft: rgb(116 169 255 / 14%);
     --af-shadow-sm: 0 1px 2px rgb(0 0 0 / 40%), 0 1px 3px rgb(0 0 0 / 30%);
 
     --bs-body-color: var(--af-text);
@@ -144,6 +151,46 @@ h1:focus {
 
 .table-responsive > .table {
     border-collapse: separate;
+}
+
+/*
+ * Phones: give the tables the width back. Matches the layout's own 641px breakpoint, below
+ * which the sidebar stacks on top and the content already spans the viewport - so everything
+ * reclaimed here goes straight to the table.
+ *
+ * Three things were eating it: the template's .px-4 gutters (3rem of a 375px screen), the
+ * table-responsive border sitting inside those gutters, and default cell padding.
+ */
+@media (max-width: 640.98px) {
+    /* Bootstrap's spacing utilities are !important, so overriding .px-4 needs to be too. */
+    .content.px-4 {
+        padding-left: var(--af-space-3) !important;
+        padding-right: var(--af-space-3) !important;
+    }
+
+    /* Run tables edge to edge: the negative margin cancels the gutter above, so the scrollable
+       area is the full viewport and fewer columns fall off the right. */
+    .table-responsive {
+        margin-left: calc(-1 * var(--af-space-3));
+        margin-right: calc(-1 * var(--af-space-3));
+        border-left: 0;
+        border-right: 0;
+        border-radius: 0;
+    }
+
+    .table > :not(caption) > * > * {
+        padding-left: var(--af-space-2);
+        padding-right: var(--af-space-2);
+    }
+
+    /* Long identifiers (SO-DEMO-001, RM-001 - Polymer Base A) otherwise force the table far
+       wider than the screen before any scrolling helps. The header selector has to match the
+       specificity of the nowrap rule above - a media query alone does not outrank it. */
+    .table > thead > tr > th,
+    .table > tbody > tr > td {
+        white-space: normal;
+        word-break: break-word;
+    }
 }
 
 /* ---------- Cards ---------- */

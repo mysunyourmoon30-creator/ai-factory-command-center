@@ -1,0 +1,74 @@
+/*
+ * Scoped so the tile owns its own layout instead of every caller repeating utility classes.
+ * Tone only tints the icon chip and the value - the card surface stays neutral, otherwise a
+ * dashboard with several warnings turns into a wall of colour and nothing stands out.
+ */
+
+.kpi {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--af-space-3);
+    height: 100%;
+    padding: var(--af-space-3);
+    border: 1px solid var(--af-border);
+    border-radius: var(--af-radius);
+    background: var(--af-surface);
+    box-shadow: var(--af-shadow-sm);
+}
+
+.kpi-icon {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--af-radius);
+    background: var(--af-surface-sunken);
+    color: var(--af-text-muted);
+}
+
+.kpi-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.2;
+}
+
+.kpi-label {
+    font-size: var(--af-text-sm);
+    color: var(--af-text-muted);
+}
+
+.kpi-value {
+    font-size: var(--af-text-2xl);
+    font-weight: 600;
+    /* The whole point of a KPI row is comparing figures down a column. */
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+.kpi-caption {
+    font-size: var(--af-text-xs);
+    color: var(--af-text-muted);
+}
+
+/* ---------- Tones ---------- */
+
+.kpi-danger .kpi-icon {
+    background: rgb(220 53 69 / 12%);
+    color: #dc3545;
+}
+
+.kpi-danger .kpi-value {
+    color: #dc3545;
+}
+
+.kpi-warning .kpi-icon {
+    background: rgb(255 193 7 / 18%);
+    color: #b8860b;
+}
+
+.kpi-success .kpi-icon {
+    background: rgb(25 135 84 / 12%);
+    color: #198754;
+}

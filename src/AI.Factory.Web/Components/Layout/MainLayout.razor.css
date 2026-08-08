@@ -9,17 +9,87 @@ main {
 }
 
 .sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+    /* Was the template's navy-to-purple gradient. A plain surface with one hairline border
+       stops the shell from announcing which scaffold it came from. */
+    background: var(--af-surface);
+    border-right: 1px solid var(--af-border);
 }
 
 .top-row {
     /* Tokens rather than the template's hardcoded greys, so the bar follows the theme. */
     background-color: var(--af-surface);
     border-bottom: 1px solid var(--af-border);
-    justify-content: flex-end;
+    /* Was flex-end with a single stray link in it. The bar now carries the page's location,
+       so the space on the left is doing work. */
+    justify-content: space-between;
     height: 3.5rem;
     display: flex;
     align-items: center;
+    gap: var(--af-space-3);
+}
+
+.page-context {
+    display: flex;
+    align-items: baseline;
+    gap: var(--af-space-2);
+    min-width: 0;
+}
+
+.page-section {
+    font-size: var(--af-text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--af-text-muted);
+    white-space: nowrap;
+}
+
+.page-separator {
+    color: var(--af-border);
+}
+
+.page-title {
+    font-size: var(--af-text-lg);
+    font-weight: 600;
+    color: var(--af-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.top-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--af-space-2);
+    flex-shrink: 0;
+}
+
+.icon-button {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid var(--af-border);
+    border-radius: var(--af-radius);
+    background: transparent;
+    color: var(--af-text-muted);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.icon-button:hover {
+    background: var(--af-surface-sunken);
+    color: var(--af-text);
+}
+
+/* Phones keep the page title - it is the only "where am I" cue once the sidebar collapses -
+   but drop the section prefix, which is the first thing to become noise at this width. */
+@media (max-width: 640.98px) {
+    .page-section,
+    .page-separator {
+        display: none;
+    }
 }
 
     .top-row ::deep a, .top-row ::deep .btn-link {

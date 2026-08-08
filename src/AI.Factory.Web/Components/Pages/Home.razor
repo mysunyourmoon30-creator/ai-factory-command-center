@@ -11,14 +11,14 @@
 }
 else
 {
-    <div class="row g-3 row-cols-2 row-cols-md-4">
-        <div class="col"><KpiCard Label="Customer Orders" Value="@Kpi.CustomerOrderCount" /></div>
-        <div class="col"><KpiCard Label="Production Plans" Value="@Kpi.ProductionPlanCount" /></div>
-        <div class="col"><KpiCard Label="Orders at Risk" Value="@Kpi.OrdersAtRiskCount" /></div>
-        <div class="col"><KpiCard Label="Material Shortages" Value="@Kpi.MaterialShortageCount" /></div>
-        <div class="col"><KpiCard Label="Late Purchase Orders" Value="@Kpi.LatePurchaseOrderCount" /></div>
-        <div class="col"><KpiCard Label="Machine Alerts" Value="@Kpi.MachineAlertCount" /></div>
-        <div class="col"><KpiCard Label="Critical Risks" Value="@Kpi.CriticalRiskCount" Emphasis="true" /></div>
+    <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-lg-4">
+        <div class="col"><KpiCard Label="Customer Orders" Value="@Kpi.CustomerOrderCount" Icon="orders" /></div>
+        <div class="col"><KpiCard Label="Production Plans" Value="@Kpi.ProductionPlanCount" Icon="plans" /></div>
+        <div class="col"><KpiCard Label="Orders at Risk" Value="@Kpi.OrdersAtRiskCount" Icon="shortage" Tone="@Warn(Kpi.OrdersAtRiskCount)" /></div>
+        <div class="col"><KpiCard Label="Material Shortages" Value="@Kpi.MaterialShortageCount" Icon="materials" Tone="@Warn(Kpi.MaterialShortageCount)" /></div>
+        <div class="col"><KpiCard Label="Late Purchase Orders" Value="@Kpi.LatePurchaseOrderCount" Icon="procurement" Tone="@Warn(Kpi.LatePurchaseOrderCount)" /></div>
+        <div class="col"><KpiCard Label="Machine Alerts" Value="@Kpi.MachineAlertCount" Icon="machines" Tone="@Warn(Kpi.MachineAlertCount)" /></div>
+        <div class="col"><KpiCard Label="Critical Risks" Value="@Kpi.CriticalRiskCount" Icon="shortage" Tone="@Danger(Kpi.CriticalRiskCount)" /></div>
     </div>
 }
 
@@ -74,6 +74,11 @@ else
 }
 
 @code {
+    // Colour follows the number, so a clean factory shows a calm dashboard and any tint on the
+    // row is genuinely worth looking at.
+    private static KpiCard.KpiTone Warn(int count) => count > 0 ? KpiCard.KpiTone.Warning : KpiCard.KpiTone.Neutral;
+    private static KpiCard.KpiTone Danger(int count) => count > 0 ? KpiCard.KpiTone.Danger : KpiCard.KpiTone.Neutral;
+
     private DashboardKpiDto? Kpi;
     private DailySummaryDto? DailySummary;
     private CriticalRisksDto? CriticalRisks;

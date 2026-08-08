@@ -12,7 +12,7 @@
 @if (Rows.Count > 0)
 {
     <div class="row g-3 mb-2">
-        <div class="col-auto"><div class="card p-2"><div class="text-muted small">With Active Demand</div><div class="fs-5">@Rows.Count</div></div></div>
+        <div class="col-6 col-md-auto"><KpiCard Label="With Active Demand" Value="@Rows.Count" Icon="materials" /></div>
         <div class="col-auto"><div class="card p-2 border-danger"><div class="text-muted small">Short</div><div class="fs-5 text-danger">@Rows.Count(x => x.ShortageQuantity > 0)</div></div></div>
     </div>
     <div class="d-flex gap-2 align-items-end mb-2">

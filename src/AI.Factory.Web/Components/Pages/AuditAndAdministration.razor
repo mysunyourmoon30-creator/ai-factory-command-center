@@ -19,7 +19,7 @@
         <Authorized Context="viewAuthorization">
             <h2 class="h4">Audit Log Report</h2>
             <div class="row g-3 mb-2">
-                <div class="col-auto"><div class="card p-2"><div class="text-muted small">Matching Entries</div><div class="fs-5">@AuditPage.TotalCount</div></div></div>
+                <div class="col-6 col-md-auto"><KpiCard Label="Matching Entries" Value="@AuditPage.TotalCount" Icon="admin" /></div>
             </div>
             <div class="row g-2 mb-2">
                 <div class="col-md-3"><label class="form-label">Search (user or entity)</label><input class="form-control" @bind="SearchInput" /></div>
