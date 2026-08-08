@@ -6,7 +6,7 @@
 
 <PageTitle>Material Shortage</PageTitle>
 <h1>Material Shortage</h1>
-@if (!string.IsNullOrWhiteSpace(Message)) { <div class="alert alert-info">@Message</div> }
+<StatusMessage Message="@Message" Kind="@MessageKind" />
 
 <h2 class="h4 mt-4">Material Shortage Report</h2>
 @if (Rows.Count > 0)
@@ -23,21 +23,23 @@
 @if (FilteredRows.Count == 0) { <div class="alert alert-light">No raw material has active demand.</div> }
 else
 {
-    <table class="table table-striped align-middle">
-        <thead><tr><th>Raw Material</th><th class="text-end">Total Requirement</th><th class="text-end">On-hand Available</th><th class="text-end">Eligible Incoming</th><th class="text-end">Projected Available</th><th class="text-end">Shortage</th><th>Required Date</th><th></th></tr></thead>
-        <tbody>@foreach (var row in FilteredRows) {
-            <tr>
-                <td>@row.RawMaterialCode - @row.RawMaterialName</td>
-                <td class="text-end">@row.TotalRequirement.ToString("N3") @row.Unit</td>
-                <td class="text-end">@Math.Max(row.OnHandAvailable, 0).ToString("N3") @if (row.OnHandAvailable < 0) { <span class="badge text-bg-danger ms-1">Negative</span> }</td>
-                <td class="text-end">@row.EligibleIncoming.ToString("N3")</td>
-                <td class="text-end">@Math.Max(row.ProjectedAvailable, 0).ToString("N3")</td>
-                <td class="text-end"><span class="badge @(row.ShortageQuantity > 0 ? "text-bg-danger" : "text-bg-success")">@row.ShortageQuantity.ToString("N3")</span></td>
-                <td>@(row.MaterialRequiredDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
-                <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => Select(row)">Detail</button></td>
-            </tr>
-        }</tbody>
-    </table>
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Total Requirement</th><th scope="col" class="text-end">On-hand Available</th><th scope="col" class="text-end">Eligible Incoming</th><th scope="col" class="text-end">Projected Available</th><th scope="col" class="text-end">Shortage</th><th scope="col">Required Date</th><th scope="col"></th></tr></thead>
+            <tbody>@foreach (var row in FilteredRows) {
+                <tr>
+                    <td>@row.RawMaterialCode - @row.RawMaterialName</td>
+                    <td class="text-end">@row.TotalRequirement.ToString("N3") @row.Unit</td>
+                    <td class="text-end">@Math.Max(row.OnHandAvailable, 0).ToString("N3") @if (row.OnHandAvailable < 0) { <span class="badge text-bg-danger ms-1">Negative</span> }</td>
+                    <td class="text-end">@row.EligibleIncoming.ToString("N3")</td>
+                    <td class="text-end">@Math.Max(row.ProjectedAvailable, 0).ToString("N3")</td>
+                    <td class="text-end"><span class="badge @(row.ShortageQuantity > 0 ? "text-bg-danger" : "text-bg-success")">@row.ShortageQuantity.ToString("N3")</span></td>
+                    <td>@(row.MaterialRequiredDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
+                    <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => Select(row)">Detail</button></td>
+                </tr>
+            }</tbody>
+        </table>
+    </div>
 }
 
 @if (Selected is not null)
@@ -49,8 +51,10 @@ else
     @if (Selected.AffectedOrders.Count == 0) { <div class="alert alert-light">No active plan requires this material.</div> }
     else
     {
-        <table class="table table-sm"><thead><tr><th>Order</th><th>Customer</th><th>Plan</th><th>Required Date</th><th class="text-end">Required</th></tr></thead>
-            <tbody>@foreach (var order in Selected.AffectedOrders) { <tr><td>@order.OrderNumber</td><td>@order.CustomerName</td><td>@order.PlanNumber</td><td>@order.RequiredDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td class="text-end">@order.RequiredQuantity.ToString("N3")</td></tr> }</tbody></table>
+        <div class="table-responsive">
+            <table class="table table-sm"><thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Plan</th><th scope="col">Required Date</th><th scope="col" class="text-end">Required</th></tr></thead>
+                <tbody>@foreach (var order in Selected.AffectedOrders) { <tr><td>@order.OrderNumber</td><td>@order.CustomerName</td><td>@order.PlanNumber</td><td>@order.RequiredDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td class="text-end">@order.RequiredQuantity.ToString("N3")</td></tr> }</tbody></table>
+        </div>
     }
 
     <h3 class="h5">Late Purchase Orders</h3>
@@ -58,8 +62,10 @@ else
     else
     {
         <div class="alert alert-warning">Late purchase orders are shown for visibility and are never counted as eligible incoming supply.</div>
-        <table class="table table-sm"><thead><tr><th>Purchase Order</th><th>Expected</th><th class="text-end">Delay (days)</th><th class="text-end">Outstanding</th></tr></thead>
-            <tbody>@foreach (var late in Selected.LatePurchaseOrders) { <tr><td>@late.PurchaseOrderNumber</td><td>@late.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td class="text-end">@late.DelayDays</td><td class="text-end">@late.OutstandingQuantity.ToString("N3")</td></tr> }</tbody></table>
+        <div class="table-responsive">
+            <table class="table table-sm"><thead><tr><th scope="col">Purchase Order</th><th scope="col">Expected</th><th scope="col" class="text-end">Delay (days)</th><th scope="col" class="text-end">Outstanding</th></tr></thead>
+                <tbody>@foreach (var late in Selected.LatePurchaseOrders) { <tr><td>@late.PurchaseOrderNumber</td><td>@late.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td class="text-end">@late.DelayDays</td><td class="text-end">@late.OutstandingQuantity.ToString("N3")</td></tr> }</tbody></table>
+        </div>
     }
 
     <AuthorizeView Policy="@PolicyNames.CanCreatePurchaseRequest">
@@ -88,6 +94,7 @@ else
     private MaterialShortageDto? Selected;
     private RequestInput Input = new();
     private string? Message;
+    private StatusMessage.MessageKind MessageKind = StatusMessage.MessageKind.Info;
     private bool ShortageOnly;
     private IReadOnlyCollection<MaterialShortageDto> FilteredRows => ShortageOnly ? Rows.Where(x => x.ShortageQuantity > 0).ToArray() : Rows;
 
@@ -118,10 +125,10 @@ else
             var created = await Shortages.CreatePurchaseRequestAsync(
                 new(Selected.RawMaterialId, Input.SourceProductionPlanId, Input.RequestedQuantity, Input.ExpectedDate),
                 await CurrentActorAsync());
-            Message = $"Draft purchase request {created.RequestNumber} created.";
+            Message = $"Draft purchase request {created.RequestNumber} created."; MessageKind = StatusMessage.MessageKind.Success;
             await ReloadAsync();
         }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;

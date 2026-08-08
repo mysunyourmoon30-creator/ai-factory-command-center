@@ -7,7 +7,7 @@
 
 <PageTitle>Production Plan</PageTitle>
 <h1>Production Plan</h1>
-@if (!string.IsNullOrWhiteSpace(Message)) { <div class="alert alert-info">@Message</div> }
+<StatusMessage Message="@Message" Kind="@MessageKind" />
 
 <AuthorizeView Policy="@PolicyNames.CanManageProductionPlans">
     <Authorized Context="createAuthorization">
@@ -48,14 +48,16 @@
 @if (FilteredPlans.Count == 0) { <div class="alert alert-light">No production plans found.</div> }
 else
 {
-    <table class="table table-striped align-middle">
-        <thead><tr><th>Plan</th><th>Order</th><th>Machine</th><th>Required Batch</th><th>Completion</th><th>Lifecycle</th><th>Risk</th><th></th></tr></thead>
-        <tbody>@foreach (var plan in FilteredPlans) {
-            <tr><td>@plan.PlanNumber</td><td>@plan.OrderNumber</td><td>@plan.MachineCode</td><td>@plan.RequiredBatch</td><td>@plan.PlannedCompletionDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
-                <td><span class="badge text-bg-secondary">@plan.LifecycleStatus</span></td><td><span class="badge @RiskClass(plan.RiskStatus)">@plan.RiskStatus</span></td>
-                <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => Selected = plan">Detail</button></td></tr>
-        }</tbody>
-    </table>
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead><tr><th scope="col">Plan</th><th scope="col">Order</th><th scope="col">Machine</th><th scope="col">Required Batch</th><th scope="col">Completion</th><th scope="col">Lifecycle</th><th scope="col">Risk</th><th scope="col"></th></tr></thead>
+            <tbody>@foreach (var plan in FilteredPlans) {
+                <tr><td>@plan.PlanNumber</td><td>@plan.OrderNumber</td><td>@plan.MachineCode</td><td>@plan.RequiredBatch</td><td>@plan.PlannedCompletionDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
+                    <td><StatusBadge Neutral="@plan.LifecycleStatus.ToString()" /></td><td><StatusBadge Risk="plan.RiskStatus" /></td>
+                    <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => Selected = plan">Detail</button></td></tr>
+            }</tbody>
+        </table>
+    </div>
 }
 
 @if (Selected is not null)
@@ -64,8 +66,10 @@ else
     <dl class="row"><dt class="col-sm-3">Order / formulation</dt><dd class="col-sm-9">@Selected.OrderNumber / @Selected.FormulationCode</dd>
         <dt class="col-sm-3">Quantity / required batch</dt><dd class="col-sm-9">@Selected.OrderQuantity.ToString("N3") / @Selected.RequiredBatch batch(es)</dd>
         <dt class="col-sm-3">Machine</dt><dd class="col-sm-9">@Selected.MachineCode - @Selected.MachineName</dd></dl>
-    <table class="table table-sm"><thead><tr><th>Raw Material</th><th class="text-end">Required</th><th class="text-end">Current Stock</th><th class="text-end">Reserved</th></tr></thead>
-        <tbody>@foreach (var material in Selected.MaterialRequirements) { <tr><td>@material.RawMaterialCode - @material.RawMaterialName</td><td class="text-end">@material.RequiredQuantity.ToString("N3") @material.Unit</td><td class="text-end">@material.CurrentStock.ToString("N3")</td><td class="text-end">@material.ReservedStock.ToString("N3")</td></tr> }</tbody></table>
+    <div class="table-responsive">
+        <table class="table table-sm"><thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Required</th><th scope="col" class="text-end">Current Stock</th><th scope="col" class="text-end">Reserved</th></tr></thead>
+            <tbody>@foreach (var material in Selected.MaterialRequirements) { <tr><td>@material.RawMaterialCode - @material.RawMaterialName</td><td class="text-end">@material.RequiredQuantity.ToString("N3") @material.Unit</td><td class="text-end">@material.CurrentStock.ToString("N3")</td><td class="text-end">@material.ReservedStock.ToString("N3")</td></tr> }</tbody></table>
+    </div>
     <AuthorizeView Policy="@PolicyNames.CanManageProductionPlans">
         <Authorized Context="transitionAuthorization">
             @if (NextStatus is not null) { <button class="btn btn-outline-primary" @onclick="TransitionAsync">Move plan to @NextStatus</button> }
@@ -81,6 +85,7 @@ else
     private ProductionPlanDto? Selected;
     private PlanInput Input = new();
     private string? Message;
+    private StatusMessage.MessageKind MessageKind = StatusMessage.MessageKind.Info;
     private string RiskFilter = "";
     private IReadOnlyCollection<ProductionPlanDto> FilteredPlans =>
         string.IsNullOrEmpty(RiskFilter) ? Plans : Plans.Where(x => x.RiskStatus.ToString() == RiskFilter).ToArray();
@@ -101,11 +106,11 @@ else
         try
         {
             Selected = await ProductionPlans.CreateAsync(new(Input.PlanNumber, Input.CustomerOrderId, Input.MachineId, Input.PlannedCompletionDate), await CurrentActorAsync());
-            Message = "Production plan and material requirements created.";
+            Message = "Production plan and material requirements created."; MessageKind = StatusMessage.MessageKind.Success;
             await ReloadAsync();
             Selected = Plans.Single(x => x.Id == Selected.Id);
         }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task TransitionAsync()
@@ -114,15 +119,14 @@ else
         try
         {
             Selected = await ProductionPlans.TransitionAsync(Selected.Id, new(NextStatus.Value, Selected.RowVersion), await CurrentActorAsync());
-            Message = $"Production plan moved to {Selected?.LifecycleStatus}.";
+            Message = $"Production plan moved to {Selected?.LifecycleStatus}."; MessageKind = StatusMessage.MessageKind.Success;
             Plans = await ProductionPlans.ListAsync();
             if (Selected is not null) Selected = Plans.Single(x => x.Id == Selected.Id);
         }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
-    private static string RiskClass(RiskStatus risk) => risk switch { RiskStatus.Critical => "text-bg-danger", RiskStatus.Warning => "text-bg-warning", _ => "text-bg-success" };
     private sealed class PlanInput
     {
         [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(30)] public string PlanNumber { get; set; } = "";

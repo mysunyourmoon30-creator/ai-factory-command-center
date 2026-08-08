@@ -1,0 +1,28 @@
+@*
+    Replaces roughly ten ad-hoc `<div class="alert alert-light">No ... found.</div>` blocks,
+    each worded differently. Also used for the loading state, so "nothing here yet" and
+    "still fetching" stop looking identical to the reader.
+*@
+
+<div class="border rounded d-flex flex-column align-items-center justify-content-center text-center text-muted py-4 px-3"
+     style="background: var(--af-surface); gap: var(--af-space-1);">
+    @if (Loading)
+    {
+        <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+    }
+    <div style="font-size: var(--af-text-sm);">@Message</div>
+    @if (Hint is not null)
+    {
+        <div style="font-size: var(--af-text-xs);">@Hint</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Message { get; set; } = string.Empty;
+
+    /// <summary>Optional second line, e.g. how to get data onto the screen.</summary>
+    [Parameter] public string? Hint { get; set; }
+
+    /// <summary>Shows a spinner and marks the region busy for assistive technology.</summary>
+    [Parameter] public bool Loading { get; set; }
+}

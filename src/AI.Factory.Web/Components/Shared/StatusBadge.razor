@@ -1,0 +1,37 @@
+@*
+    Single source of truth for how a computed RiskStatus, an AlertSeverity, or a lifecycle
+    status is coloured. The RiskStatus mapping was previously copy-pasted verbatim into six
+    pages, so a change to the colour language meant six edits and any one of them could drift.
+*@
+
+<span class="badge @CssClass">@Label</span>
+
+@code {
+    /// <summary>Computed risk. Mutually exclusive with the other parameters.</summary>
+    [Parameter] public RiskStatus? Risk { get; set; }
+
+    /// <summary>Alert severity.</summary>
+    [Parameter] public AlertSeverity? Severity { get; set; }
+
+    /// <summary>A lifecycle status (or any neutral value) rendered without risk colouring.</summary>
+    [Parameter] public string? Neutral { get; set; }
+
+    private string CssClass => (Risk, Severity, Neutral) switch
+    {
+        ({ } risk, _, _) => risk switch
+        {
+            RiskStatus.Critical => "text-bg-danger",
+            RiskStatus.Warning => "text-bg-warning",
+            _ => "text-bg-success"
+        },
+        (_, { } severity, _) => severity switch
+        {
+            AlertSeverity.Critical => "text-bg-danger",
+            AlertSeverity.Warning => "text-bg-warning",
+            _ => "text-bg-secondary"
+        },
+        _ => "text-bg-secondary"
+    };
+
+    private string Label => Risk?.ToString() ?? Severity?.ToString() ?? Neutral ?? string.Empty;
+}

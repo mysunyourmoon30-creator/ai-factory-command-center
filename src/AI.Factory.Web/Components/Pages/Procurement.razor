@@ -6,11 +6,11 @@
 
 <PageTitle>Procurement</PageTitle>
 <h1>Procurement</h1>
-@if (!string.IsNullOrWhiteSpace(Message)) { <div class="alert alert-info">@Message</div> }
+<StatusMessage Message="@Message" Kind="@MessageKind" />
 
-<ul class="nav nav-tabs mb-3">
-    <li class="nav-item"><button class="nav-link @(Tab == "requests" ? "active" : null)" @onclick='() => Tab = "requests"'>Purchase Request Approval</button></li>
-    <li class="nav-item"><button class="nav-link @(Tab == "incoming" ? "active" : null)" @onclick='() => Tab = "incoming"'>Incoming Purchase Order</button></li>
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "requests")" class="nav-link @(Tab == "requests" ? "active" : null)" @onclick='() => Tab = "requests"'>Purchase Request Approval</button></li>
+    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "incoming")" class="nav-link @(Tab == "incoming" ? "active" : null)" @onclick='() => Tab = "incoming"'>Incoming Purchase Order</button></li>
 </ul>
 
 @if (Tab == "requests")
@@ -18,26 +18,30 @@
     @if (Requests.Count == 0) { <div class="alert alert-light">No purchase request has been raised.</div> }
     else
     {
-        <table class="table table-striped align-middle">
-            <thead><tr><th>Request</th><th>Plan</th><th>Status</th><th>Requested</th><th>Approved</th><th></th></tr></thead>
-            <tbody>@foreach (var request in Requests) {
-                <tr>
-                    <td>@request.RequestNumber</td>
-                    <td>@request.PlanNumber</td>
-                    <td><span class="badge @StatusClass(request.Status)">@request.Status</span></td>
-                    <td>@request.RequestedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
-                    <td>@(request.ApprovedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
-                    <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectRequest(request)">Detail</button></td>
-                </tr>
-            }</tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead><tr><th scope="col">Request</th><th scope="col">Plan</th><th scope="col">Status</th><th scope="col">Requested</th><th scope="col">Approved</th><th scope="col"></th></tr></thead>
+                <tbody>@foreach (var request in Requests) {
+                    <tr>
+                        <td>@request.RequestNumber</td>
+                        <td>@request.PlanNumber</td>
+                        <td><span class="badge @StatusClass(request.Status)">@request.Status</span></td>
+                        <td>@request.RequestedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
+                        <td>@(request.ApprovedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
+                        <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectRequest(request)">Detail</button></td>
+                    </tr>
+                }</tbody>
+            </table>
+        </div>
     }
 
     @if (SelectedRequest is not null)
     {
         <h2 class="h4 mt-4">@SelectedRequest.RequestNumber Detail</h2>
-        <table class="table table-sm"><thead><tr><th>Raw Material</th><th class="text-end">Requested Quantity</th><th>Expected Date</th></tr></thead>
-            <tbody>@foreach (var item in SelectedRequest.Items) { <tr><td>@item.RawMaterialCode</td><td class="text-end">@item.RequestedQuantity.ToString("N3")</td><td>@item.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
+        <div class="table-responsive">
+            <table class="table table-sm"><thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Requested Quantity</th><th scope="col">Expected Date</th></tr></thead>
+                <tbody>@foreach (var item in SelectedRequest.Items) { <tr><td>@item.RawMaterialCode</td><td class="text-end">@item.RequestedQuantity.ToString("N3")</td><td>@item.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
+        </div>
         @if (!string.IsNullOrWhiteSpace(SelectedRequest.RejectionReason)) { <div class="alert alert-warning">Rejected: @SelectedRequest.RejectionReason</div> }
 
         @if (SelectedRequest.Status == PurchaseRequestStatus.Draft)
@@ -81,26 +85,30 @@ else
     @if (FilteredIncomingOrders.Count == 0) { <div class="alert alert-light">No incoming purchase order has been recorded.</div> }
     else
     {
-        <table class="table table-striped align-middle">
-            <thead><tr><th>Purchase Order</th><th>Request</th><th>Expected</th><th>Received</th><th>Status</th><th></th></tr></thead>
-            <tbody>@foreach (var order in FilteredIncomingOrders) {
-                <tr>
-                    <td>@order.PurchaseOrderNumber</td>
-                    <td>@order.RequestNumber</td>
-                    <td>@order.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
-                    <td>@(order.ReceivedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
-                    <td><span class="badge @StatusClass(order.Status)">@order.Status</span> @if (order.IsLate) { <span class="badge text-bg-warning ms-1">Late @order.DelayDays d</span> }</td>
-                    <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectOrder(order)">Detail</button></td>
-                </tr>
-            }</tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead><tr><th scope="col">Purchase Order</th><th scope="col">Request</th><th scope="col">Expected</th><th scope="col">Received</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
+                <tbody>@foreach (var order in FilteredIncomingOrders) {
+                    <tr>
+                        <td>@order.PurchaseOrderNumber</td>
+                        <td>@order.RequestNumber</td>
+                        <td>@order.ExpectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
+                        <td>@(order.ReceivedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
+                        <td><span class="badge @StatusClass(order.Status)">@order.Status</span> @if (order.IsLate) { <span class="badge text-bg-warning ms-1">Late @order.DelayDays d</span> }</td>
+                        <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectOrder(order)">Detail</button></td>
+                    </tr>
+                }</tbody>
+            </table>
+        </div>
     }
 
     @if (SelectedOrder is not null)
     {
         <h2 class="h4 mt-4">@SelectedOrder.PurchaseOrderNumber Detail</h2>
-        <table class="table table-sm"><thead><tr><th>Raw Material</th><th class="text-end">Ordered</th><th class="text-end">Received</th></tr></thead>
-            <tbody>@foreach (var item in SelectedOrder.Items) { <tr><td>@item.RawMaterialCode - @item.RawMaterialName</td><td class="text-end">@item.OrderedQuantity.ToString("N3") @item.Unit</td><td class="text-end">@item.ReceivedQuantity.ToString("N3")</td></tr> }</tbody></table>
+        <div class="table-responsive">
+            <table class="table table-sm"><thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Ordered</th><th scope="col" class="text-end">Received</th></tr></thead>
+                <tbody>@foreach (var item in SelectedOrder.Items) { <tr><td>@item.RawMaterialCode - @item.RawMaterialName</td><td class="text-end">@item.OrderedQuantity.ToString("N3") @item.Unit</td><td class="text-end">@item.ReceivedQuantity.ToString("N3")</td></tr> }</tbody></table>
+        </div>
 
         <AuthorizeView Policy="@PolicyNames.CanRecordIncomingPurchaseOrder">
             <Authorized Context="receiveAuthorization">
@@ -129,8 +137,10 @@ else
                 </div>
                 @if (CreateInput.Items.Count > 0)
                 {
-                    <table class="table table-sm mt-2"><thead><tr><th>Raw Material</th><th>Requested</th><th>Ordered Quantity</th></tr></thead>
-                        <tbody>@foreach (var item in CreateInput.Items) { <tr><td>@item.RawMaterialCode</td><td>@item.RequestedQuantity.ToString("N3")</td><td style="max-width:10rem"><InputNumber class="form-control" @bind-Value="item.OrderedQuantity" /></td></tr> }</tbody></table>
+                    <div class="table-responsive">
+                        <table class="table table-sm mt-2"><thead><tr><th scope="col">Raw Material</th><th scope="col">Requested</th><th scope="col">Ordered Quantity</th></tr></thead>
+                            <tbody>@foreach (var item in CreateInput.Items) { <tr><td>@item.RawMaterialCode</td><td>@item.RequestedQuantity.ToString("N3")</td><td style="max-width:10rem"><InputNumber class="form-control" @bind-Value="item.OrderedQuantity" /></td></tr> }</tbody></table>
+                    </div>
                     <button class="btn btn-primary" @onclick="CreateIncomingOrderAsync">Create incoming purchase order</button>
                 }
             }
@@ -141,6 +151,7 @@ else
 @code {
     private string Tab = "requests";
     private string? Message;
+    private StatusMessage.MessageKind MessageKind = StatusMessage.MessageKind.Info;
     private IReadOnlyCollection<PurchaseRequestDto> Requests = [];
     private IReadOnlyCollection<IncomingPurchaseOrderDto> IncomingOrders = [];
     private bool LateOnly;
@@ -178,22 +189,22 @@ else
     private async Task SubmitAsync()
     {
         if (SelectedRequest is null) return;
-        try { SelectedRequest = await ProcurementService.SubmitPurchaseRequestAsync(SelectedRequest.Id, new(SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request submitted for approval."; await ReloadAsync(); }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+        try { SelectedRequest = await ProcurementService.SubmitPurchaseRequestAsync(SelectedRequest.Id, new(SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request submitted for approval."; MessageKind = StatusMessage.MessageKind.Success; await ReloadAsync(); }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task ApproveAsync()
     {
         if (SelectedRequest is null) return;
-        try { SelectedRequest = await ProcurementService.ApprovePurchaseRequestAsync(SelectedRequest.Id, new(SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request approved."; await ReloadAsync(); }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+        try { SelectedRequest = await ProcurementService.ApprovePurchaseRequestAsync(SelectedRequest.Id, new(SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request approved."; MessageKind = StatusMessage.MessageKind.Success; await ReloadAsync(); }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task RejectAsync()
     {
         if (SelectedRequest is null) return;
-        try { SelectedRequest = await ProcurementService.RejectPurchaseRequestAsync(SelectedRequest.Id, new(RejectReason, SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request rejected."; await ReloadAsync(); }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+        try { SelectedRequest = await ProcurementService.RejectPurchaseRequestAsync(SelectedRequest.Id, new(RejectReason, SelectedRequest.RowVersion), await CurrentActorAsync()); Message = "Purchase request rejected."; MessageKind = StatusMessage.MessageKind.Success; await ReloadAsync(); }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task CreateIncomingOrderAsync()
@@ -202,11 +213,11 @@ else
         {
             var items = CreateInput.Items.Select(x => new IncomingPurchaseOrderItemCommand(x.RawMaterialId, x.OrderedQuantity)).ToArray();
             SelectedOrder = await ProcurementService.CreateIncomingPurchaseOrderAsync(new(CreateInput.PurchaseRequestId, CreateInput.ExpectedDate, items), await CurrentActorAsync());
-            Message = $"Incoming purchase order {SelectedOrder.PurchaseOrderNumber} created.";
+            Message = $"Incoming purchase order {SelectedOrder.PurchaseOrderNumber} created."; MessageKind = StatusMessage.MessageKind.Success;
             CreateInput = new CreateOrderForm();
             await ReloadAsync();
         }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task ReceiveAsync()
@@ -215,10 +226,10 @@ else
         try
         {
             SelectedOrder = await ProcurementService.SetReceivedQuantityAsync(SelectedOrder.Id, new(ReceiveInput.RawMaterialId, ReceiveInput.TargetReceivedQuantity, SelectedOrder.RowVersion), await CurrentActorAsync());
-            Message = "Received quantity updated.";
+            Message = "Received quantity updated."; MessageKind = StatusMessage.MessageKind.Success;
             await ReloadAsync();
         }
-        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; }
+        catch (Exception ex) when (ex is DomainValidationException or BusinessConflictException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;

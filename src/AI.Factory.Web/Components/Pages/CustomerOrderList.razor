@@ -27,20 +27,22 @@
 }
 else
 {
-    <table class="table table-striped align-middle">
-        <thead><tr><th>Order</th><th>Customer</th><th>Formulation</th><th class="text-end">Quantity</th><th>Delivery</th><th>Priority</th><th>Lifecycle</th><th>Risk</th></tr></thead>
-        <tbody>
-        @foreach (var order in Page.Items)
-        {
-            <tr>
-                <td><a href="orders/@order.Id">@order.OrderNumber</a></td><td>@order.CustomerName</td><td>@order.FormulationCode</td>
-                <td class="text-end">@order.Quantity.ToString("N3")</td><td>@order.DeliveryDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td>@order.Priority</td>
-                <td><span class="badge text-bg-secondary">@order.LifecycleStatus</span></td>
-                <td><span class="badge @RiskClass(order.RiskStatus)">@order.RiskStatus</span></td>
-            </tr>
-        }
-        </tbody>
-    </table>
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Formulation</th><th scope="col" class="text-end">Quantity</th><th scope="col">Delivery</th><th scope="col">Priority</th><th scope="col">Lifecycle</th><th scope="col">Risk</th></tr></thead>
+            <tbody>
+            @foreach (var order in Page.Items)
+            {
+                <tr>
+                    <td><a href="orders/@order.Id">@order.OrderNumber</a></td><td>@order.CustomerName</td><td>@order.FormulationCode</td>
+                    <td class="text-end">@order.Quantity.ToString("N3")</td><td>@order.DeliveryDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td>@order.Priority</td>
+                    <td><span class="badge text-bg-secondary">@order.LifecycleStatus</span></td>
+                    <td><StatusBadge Risk="order.RiskStatus" /></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
     @if (Page.Items.Count == 0) { <div class="alert alert-light">No customer orders found.</div> }
     <div class="d-flex justify-content-between align-items-center">
         <span>@Page.TotalCount order(s)</span>
@@ -69,5 +71,4 @@ else
         var status = Enum.TryParse<CustomerOrderStatus>(StatusFilter, out var parsed) ? parsed : (CustomerOrderStatus?)null;
         Page = await Orders.ListAsync(new(Search, status, CurrentPage, PageSize));
     }
-    private static string RiskClass(RiskStatus risk) => risk switch { RiskStatus.Critical => "text-bg-danger", RiskStatus.Warning => "text-bg-warning", _ => "text-bg-success" };
 }

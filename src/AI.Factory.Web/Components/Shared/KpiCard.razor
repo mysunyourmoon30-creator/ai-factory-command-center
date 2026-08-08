@@ -1,0 +1,24 @@
+@*
+    The KPI tile markup was repeated roughly fifteen times across Home, Procurement,
+    ProductionPlan and MaterialShortage, each with slightly different classes.
+*@
+
+<div class="card p-3 h-100 @(Emphasis ? "border-danger" : null)">
+    <div class="text-muted" style="font-size: var(--af-text-sm);">@Label</div>
+    <div class="fw-semibold @(Emphasis ? "text-danger" : null)" style="font-size: var(--af-text-2xl); font-variant-numeric: tabular-nums;">@Value</div>
+    @if (!string.IsNullOrWhiteSpace(Caption))
+    {
+        <div class="text-muted" style="font-size: var(--af-text-xs);">@Caption</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public object? Value { get; set; }
+
+    /// <summary>Optional secondary line under the value.</summary>
+    [Parameter] public string? Caption { get; set; }
+
+    /// <summary>Renders the tile in the danger colour - used for the Critical Risks count.</summary>
+    [Parameter] public bool Emphasis { get; set; }
+}

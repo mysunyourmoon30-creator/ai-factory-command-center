@@ -10,7 +10,7 @@
 <PageTitle>Customer Order</PageTitle>
 <div class="d-flex justify-content-between align-items-center mb-3"><h1>@(Id is null ? "Create Customer Order" : "Customer Order Detail")</h1><a href="orders">Back to list</a></div>
 
-@if (!string.IsNullOrWhiteSpace(Message)) { <div class="alert alert-info">@Message</div> }
+<StatusMessage Message="@Message" Kind="@MessageKind" />
 @if (Loading) { <p>Loading...</p> }
 else if (Id is not null && Order is null) { <div class="alert alert-warning">Customer order not found.</div> }
 else if (Id is null)
@@ -24,7 +24,7 @@ else if (Order is not null)
 {
     <dl class="row">
         <dt class="col-sm-3">Lifecycle status</dt><dd class="col-sm-9"><span class="badge text-bg-secondary">@Order.LifecycleStatus</span></dd>
-        <dt class="col-sm-3">Computed risk</dt><dd class="col-sm-9"><span class="badge @RiskClass(Order.RiskStatus)">@Order.RiskStatus</span></dd>
+        <dt class="col-sm-3">Computed risk</dt><dd class="col-sm-9"><StatusBadge Risk="Order.RiskStatus" /></dd>
         <dt class="col-sm-3">Production plan</dt><dd class="col-sm-9">@(Order.HasProductionPlan ? "Created — quantity and formulation are permanently locked" : "Not created")</dd>
     </dl>
     @if (Order.LifecycleStatus == CustomerOrderStatus.Draft && !Order.HasProductionPlan)
@@ -54,6 +54,7 @@ else if (Order is not null)
     [Parameter] public long? Id { get; set; }
     private bool Loading = true;
     private string? Message;
+    private StatusMessage.MessageKind MessageKind = StatusMessage.MessageKind.Info;
     private CustomerOrderDto? Order;
     private IReadOnlyCollection<FormulationDto> Formulations = [];
     private OrderInput Input = new();
@@ -116,9 +117,9 @@ else if (Order is not null)
             }
             Order = await Orders.UpdateAsync(Id.Value, new(Input.OrderNumber, Input.CustomerName, Input.FormulationId, Input.Quantity, Input.DeliveryDate, Input.Priority, Input.RowVersion), await CurrentActorAsync());
             if (Order is not null) Input.RowVersion = Order.RowVersion;
-            Message = "Customer order updated.";
+            Message = "Customer order updated."; MessageKind = StatusMessage.MessageKind.Success;
         }
-        catch (Exception ex) when (ex is DomainValidationException or ConcurrencyConflictException) { Message = ex.Message; }
+        catch (Exception ex) when (ex is DomainValidationException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task TransitionAsync()
@@ -128,12 +129,11 @@ else if (Order is not null)
         {
             Order = await Orders.TransitionAsync(Order.Id, new(NextStatus.Value, Order.RowVersion), await CurrentActorAsync());
             if (Order is not null) Input.RowVersion = Order.RowVersion;
-            Message = $"Lifecycle moved to {Order?.LifecycleStatus}.";
+            Message = $"Lifecycle moved to {Order?.LifecycleStatus}."; MessageKind = StatusMessage.MessageKind.Success;
         }
-        catch (Exception ex) when (ex is DomainValidationException or ConcurrencyConflictException) { Message = ex.Message; }
+        catch (Exception ex) when (ex is DomainValidationException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
-    private static string RiskClass(RiskStatus risk) => risk switch { RiskStatus.Critical => "text-bg-danger", RiskStatus.Warning => "text-bg-warning", _ => "text-bg-success" };
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
     private sealed class OrderInput
     {

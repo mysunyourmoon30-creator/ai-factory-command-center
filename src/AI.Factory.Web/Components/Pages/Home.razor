@@ -7,41 +7,45 @@
 
 @if (Kpi is null)
 {
-    <div class="alert alert-light">Loading dashboard...</div>
+    <EmptyState Message="Loading dashboard..." Loading="true" />
 }
 else
 {
-    <div class="row g-3">
-        <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Customer Orders</div><div class="fs-3">@Kpi.CustomerOrderCount</div></div></div>
-        <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Production Plans</div><div class="fs-3">@Kpi.ProductionPlanCount</div></div></div>
-        <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Orders at Risk</div><div class="fs-3">@Kpi.OrdersAtRiskCount</div></div></div>
-        <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Material Shortages</div><div class="fs-3">@Kpi.MaterialShortageCount</div></div></div>
-        <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Late Purchase Orders</div><div class="fs-3">@Kpi.LatePurchaseOrderCount</div></div></div>
-        <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Machine Alerts</div><div class="fs-3">@Kpi.MachineAlertCount</div></div></div>
-        <div class="col-md-3"><div class="card p-3 border-danger"><div class="text-muted small">Critical Risks</div><div class="fs-3 text-danger">@Kpi.CriticalRiskCount</div></div></div>
+    <div class="row g-3 row-cols-2 row-cols-md-4">
+        <div class="col"><KpiCard Label="Customer Orders" Value="@Kpi.CustomerOrderCount" /></div>
+        <div class="col"><KpiCard Label="Production Plans" Value="@Kpi.ProductionPlanCount" /></div>
+        <div class="col"><KpiCard Label="Orders at Risk" Value="@Kpi.OrdersAtRiskCount" /></div>
+        <div class="col"><KpiCard Label="Material Shortages" Value="@Kpi.MaterialShortageCount" /></div>
+        <div class="col"><KpiCard Label="Late Purchase Orders" Value="@Kpi.LatePurchaseOrderCount" /></div>
+        <div class="col"><KpiCard Label="Machine Alerts" Value="@Kpi.MachineAlertCount" /></div>
+        <div class="col"><KpiCard Label="Critical Risks" Value="@Kpi.CriticalRiskCount" Emphasis="true" /></div>
     </div>
 }
 
 <h2 class="h4 mt-4">Critical Risks</h2>
 @if (CriticalRisks is null)
 {
-    <div class="alert alert-light">Loading...</div>
+    <EmptyState Message="Loading critical risks..." Loading="true" />
 }
 else if (CriticalRisks.DelayedOrders.Count == 0 && CriticalRisks.CriticalMachines.Count == 0)
 {
-    <div class="alert alert-success">No critical risk is currently active.</div>
+    <div class="alert alert-success" role="status">No critical risk is currently active.</div>
 }
 else
 {
     @if (CriticalRisks.DelayedOrders.Count > 0)
     {
-        <table class="table table-sm"><thead><tr><th>Order</th><th>Delivery</th><th>Planned Completion</th><th class="text-end">Delay (days)</th></tr></thead>
-            <tbody>@foreach (var order in CriticalRisks.DelayedOrders) { <tr><td>@order.OrderNumber</td><td>@order.DeliveryDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td>@order.PlannedCompletionDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td class="text-end"><span class="badge text-bg-danger">@order.DelayRiskDays</span></td></tr> }</tbody></table>
+        <div class="table-responsive mb-3">
+            <table class="table table-sm"><thead><tr><th scope="col">Order</th><th scope="col">Delivery</th><th scope="col">Planned Completion</th><th scope="col" class="text-end">Delay (days)</th></tr></thead>
+                <tbody>@foreach (var order in CriticalRisks.DelayedOrders) { <tr><td>@order.OrderNumber</td><td>@order.DeliveryDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td>@order.PlannedCompletionDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td><td class="text-end"><span class="badge text-bg-danger">@order.DelayRiskDays</span></td></tr> }</tbody></table>
+        </div>
     }
     @if (CriticalRisks.CriticalMachines.Count > 0)
     {
-        <table class="table table-sm"><thead><tr><th>Machine</th><th class="text-end">Temperature</th><th class="text-end">Speed</th></tr></thead>
-            <tbody>@foreach (var machine in CriticalRisks.CriticalMachines) { <tr><td>@machine.MachineCode</td><td class="text-end">@machine.Temperature.ToString("N0")&deg;C</td><td class="text-end">@machine.Speed.ToString("N0")</td></tr> }</tbody></table>
+        <div class="table-responsive">
+            <table class="table table-sm"><thead><tr><th scope="col">Machine</th><th scope="col" class="text-end">Temperature</th><th scope="col" class="text-end">Speed</th></tr></thead>
+                <tbody>@foreach (var machine in CriticalRisks.CriticalMachines) { <tr><td>@machine.MachineCode</td><td class="text-end">@machine.Temperature.ToString("N0")&deg;C</td><td class="text-end">@machine.Speed.ToString("N0")</td></tr> }</tbody></table>
+        </div>
     }
 }
 
@@ -59,12 +63,14 @@ else
 }
 
 <h2 class="h4 mt-4">Alert List</h2>
-@if (Alerts is null) { <div class="alert alert-light">Loading...</div> }
-else if (Alerts.Count == 0) { <div class="alert alert-light">No active alert.</div> }
+@if (Alerts is null) { <EmptyState Message="Loading alerts..." Loading="true" /> }
+else if (Alerts.Count == 0) { <EmptyState Message="No active alert." Hint="Alerts resolve themselves once the underlying condition clears." /> }
 else
 {
-    <table class="table table-sm"><thead><tr><th>Type</th><th>Severity</th><th>Entity</th><th>Message</th><th>Created</th></tr></thead>
-        <tbody>@foreach (var alert in Alerts) { <tr><td>@alert.AlertType</td><td><span class="badge @(alert.Severity == AlertSeverity.Critical ? "text-bg-danger" : "text-bg-warning")">@alert.Severity</span></td><td>@alert.EntityName #@alert.EntityId</td><td>@alert.Message</td><td>@alert.CreatedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
+    <div class="table-responsive">
+        <table class="table table-sm"><thead><tr><th scope="col">Type</th><th scope="col">Severity</th><th scope="col">Entity</th><th scope="col">Message</th><th scope="col">Created</th></tr></thead>
+            <tbody>@foreach (var alert in Alerts) { <tr><td>@alert.AlertType</td><td><StatusBadge Severity="alert.Severity" /></td><td>@alert.EntityName #@alert.EntityId</td><td>@alert.Message</td><td>@alert.CreatedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</td></tr> }</tbody></table>
+    </div>
 }
 
 @code {

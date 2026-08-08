@@ -1,0 +1,30 @@
+@*
+    Every screen previously rendered its one `Message` string as `alert alert-info`, so a
+    failed save and a successful one looked identical. This distinguishes them and announces
+    the change to screen readers, which the bare div never did.
+*@
+
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <div class="alert @AlertClass d-flex align-items-start" role="@Role" aria-live="@AriaLive" style="gap: var(--af-space-2);">
+        <span>@Message</span>
+    </div>
+}
+
+@code {
+    public enum MessageKind { Success, Error, Info }
+
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public MessageKind Kind { get; set; } = MessageKind.Info;
+
+    private string AlertClass => Kind switch
+    {
+        MessageKind.Success => "alert-success",
+        MessageKind.Error => "alert-danger",
+        _ => "alert-info"
+    };
+
+    // Errors interrupt; successes and info wait for a pause in speech.
+    private string Role => Kind == MessageKind.Error ? "alert" : "status";
+    private string AriaLive => Kind == MessageKind.Error ? "assertive" : "polite";
+}

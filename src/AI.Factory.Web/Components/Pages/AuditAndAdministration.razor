@@ -6,11 +6,11 @@
 
 <PageTitle>Audit and Administration</PageTitle>
 <h1>Audit and Administration</h1>
-@if (!string.IsNullOrWhiteSpace(Message)) { <div class="alert alert-info">@Message</div> }
+<StatusMessage Message="@Message" Kind="@MessageKind" />
 
-<ul class="nav nav-tabs mb-3">
-    <li class="nav-item"><button class="nav-link @(Tab == "audit" ? "active" : null)" @onclick='() => Tab = "audit"'>Audit Log</button></li>
-    <li class="nav-item"><button class="nav-link @(Tab == "users" ? "active" : null)" @onclick='() => Tab = "users"'>Demo User Management</button></li>
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "audit")" class="nav-link @(Tab == "audit" ? "active" : null)" @onclick='() => Tab = "audit"'>Audit Log</button></li>
+    <li class="nav-item"><button type="button" role="tab" aria-selected="@(Tab == "users")" class="nav-link @(Tab == "users" ? "active" : null)" @onclick='() => Tab = "users"'>Demo User Management</button></li>
 </ul>
 
 @if (Tab == "audit")
@@ -33,10 +33,12 @@
             }
             else
             {
-                <table class="table table-striped table-sm">
-                    <thead><tr><th>Username</th><th>Action</th><th>Entity</th><th>Result</th><th>Created</th></tr></thead>
-                    <tbody>@foreach (var log in AuditPage.Items) { <tr><td>@log.Username</td><td>@log.Action</td><td>@log.EntityName@(log.EntityId is not null ? $" #{log.EntityId}" : "")</td><td>@log.Result</td><td>@log.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)</td></tr> }</tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                        <thead><tr><th scope="col">Username</th><th scope="col">Action</th><th scope="col">Entity</th><th scope="col">Result</th><th scope="col">Created</th></tr></thead>
+                        <tbody>@foreach (var log in AuditPage.Items) { <tr><td>@log.Username</td><td>@log.Action</td><td>@log.EntityName@(log.EntityId is not null ? $" #{log.EntityId}" : "")</td><td>@log.Result</td><td>@log.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)</td></tr> }</tbody>
+                    </table>
+                </div>
                 <div class="d-flex gap-2 align-items-center">
                     <button class="btn btn-sm btn-outline-secondary" disabled="@(AuditPage.Page <= 1)" @onclick="() => ReloadAuditAsync(AuditPage.Page - 1)">Previous</button>
                     <span>Page @AuditPage.Page</span>
@@ -52,17 +54,19 @@ else
     <AuthorizeView Policy="@PolicyNames.CanManageUsers">
         <Authorized Context="manageAuthorization">
             <h2 class="h4">Demo User Management</h2>
-            <table class="table table-striped">
-                <thead><tr><th>Username</th><th>Roles</th><th>Status</th><th></th></tr></thead>
-                <tbody>@foreach (var user in DemoUsers) {
-                    <tr>
-                        <td>@user.Username</td>
-                        <td>@string.Join(", ", user.Roles)</td>
-                        <td><span class="badge @(user.IsActive ? "text-bg-success" : "text-bg-secondary")">@(user.IsActive ? "Active" : "Inactive")</span></td>
-                        <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => ToggleActiveAsync(user)">@(user.IsActive ? "Deactivate" : "Activate")</button></td>
-                    </tr>
-                }</tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead><tr><th scope="col">Username</th><th scope="col">Roles</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
+                    <tbody>@foreach (var user in DemoUsers) {
+                        <tr>
+                            <td>@user.Username</td>
+                            <td>@string.Join(", ", user.Roles)</td>
+                            <td><span class="badge @(user.IsActive ? "text-bg-success" : "text-bg-secondary")">@(user.IsActive ? "Active" : "Inactive")</span></td>
+                            <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => ToggleActiveAsync(user)">@(user.IsActive ? "Deactivate" : "Activate")</button></td>
+                        </tr>
+                    }</tbody>
+                </table>
+            </div>
         </Authorized>
         <NotAuthorized><div class="alert alert-warning">You do not have permission to manage demo users.</div></NotAuthorized>
     </AuthorizeView>
@@ -75,6 +79,7 @@ else
     private string ActionInput = "";
     private IReadOnlyCollection<DemoUser> DemoUsers = [];
     private string? Message;
+    private StatusMessage.MessageKind MessageKind = StatusMessage.MessageKind.Info;
 
     // Only load what this actor is actually allowed to see. Previously both calls ran
     // unconditionally, so a Planner or Viewer opening this page still executed the audit-log
@@ -106,6 +111,7 @@ else
         await AdminUsers.SetActiveAsync(actor, user.Id, !user.IsActive);
         DemoUsers = await AdminUsers.ListAsync(actor);
         Message = $"{user.Username} is now {(user.IsActive ? "inactive" : "active")}.";
+        MessageKind = StatusMessage.MessageKind.Success;
     }
 
     // Carries the on-screen filter into the export so the CSV matches the table above it.

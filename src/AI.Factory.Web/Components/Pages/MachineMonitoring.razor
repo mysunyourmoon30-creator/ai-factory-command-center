@@ -9,7 +9,7 @@
 <PageTitle>Machine Monitoring</PageTitle>
 <h1>Machine Monitoring</h1>
 <p class="text-muted">Live connection: <span class="badge @(IsConnected ? "text-bg-success" : "text-bg-secondary")">@(IsConnected ? "Connected" : "Connecting...")</span></p>
-@if (!string.IsNullOrWhiteSpace(Message)) { <div class="alert alert-info">@Message</div> }
+<StatusMessage Message="@Message" Kind="@MessageKind" />
 
 <div class="row g-3">
     @foreach (var machine in MachineList)
@@ -60,6 +60,7 @@
     private MachineDto? SelectedForSimulate;
     private SimulateInput Input = new();
     private string? Message;
+    private StatusMessage.MessageKind MessageKind = StatusMessage.MessageKind.Info;
     private HubConnection? _hubConnection;
     private bool IsConnected => _hubConnection?.State == HubConnectionState.Connected;
 
@@ -99,10 +100,11 @@
                 new SimulateMachineUpdateCommand(Input.RunningStatus, Input.Temperature, Input.Speed, SelectedForSimulate.RowVersion),
                 await CurrentActorAsync());
             Message = updated is null ? "Machine not found." : $"{updated.MachineCode} updated.";
+            MessageKind = updated is null ? StatusMessage.MessageKind.Error : StatusMessage.MessageKind.Success;
             await ReloadAsync();
             SelectedForSimulate = null;
         }
-        catch (Exception ex) when (ex is DomainValidationException or ConcurrencyConflictException) { Message = ex.Message; }
+        catch (Exception ex) when (ex is DomainValidationException or ConcurrencyConflictException) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
