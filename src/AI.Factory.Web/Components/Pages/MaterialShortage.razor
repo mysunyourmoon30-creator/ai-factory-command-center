@@ -3,6 +3,7 @@
 @inject IMaterialShortageService Shortages
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject TimeProvider TimeProvider
+@inject IJSRuntime JS
 
 <PageTitle>Material Shortage</PageTitle>
 <StatusMessage Message="@Message" Kind="@MessageKind" />
@@ -12,29 +13,40 @@
 {
     <div class="row g-3 mb-2">
         <div class="col-6 col-md-auto"><KpiCard Label="With Active Demand" Value="@Rows.Count" Icon="materials" /></div>
-        <div class="col-6 col-md-auto"><KpiCard Label="Short" Value="@Rows.Count(x => x.ShortageQuantity > 0)" Icon="shortage" Tone="@(Rows.Any(x => x.ShortageQuantity > 0) ? KpiCard.KpiTone.Danger : KpiCard.KpiTone.Neutral)" /></div>
+        <div class="col-6 col-md-auto"><KpiCard Label="Short" Value="@ShortCount" Icon="shortage" Tone="@(ShortCount > 0 ? KpiCard.KpiTone.Danger : KpiCard.KpiTone.Neutral)" /></div>
     </div>
-    <div class="d-flex gap-2 align-items-end mb-2">
+    <div class="d-flex gap-2 align-items-end mb-2 flex-wrap">
         <div class="form-check"><input class="form-check-input" type="checkbox" id="shortageOnly" @bind="ShortageOnly" /><label class="form-check-label" for="shortageOnly">Shortage only</label></div>
         <a class="btn btn-outline-secondary" href="/api/reports/material-shortage/export.csv" target="_blank" rel="noopener noreferrer">Export CSV</a>
     </div>
 }
-@if (FilteredRows.Count == 0) { <div class="alert alert-light">No raw material has active demand.</div> }
+
+@if (Rows.Count == 0)
+{
+    <EmptyState Message="No raw material has active demand."
+                Hint="Demand appears once a Planned or InProduction plan requires a material." />
+}
+else if (FilteredRows.Count == 0)
+{
+    <EmptyState Message="Nothing is short right now." Hint="Clear &quot;Shortage only&quot; to see every material with active demand." />
+}
 else
 {
     <div class="table-responsive">
         <table class="table table-striped align-middle">
-            <thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Total Requirement</th><th scope="col" class="text-end">On-hand Available</th><th scope="col" class="text-end">Eligible Incoming</th><th scope="col" class="text-end">Projected Available</th><th scope="col" class="text-end">Shortage</th><th scope="col">Required Date</th><th scope="col"></th></tr></thead>
+            @* Shortage and the date it is needed lead the row: they are the two figures the
+               decision turns on. The supply breakdown that explains them follows. *@
+            <thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Shortage</th><th scope="col">Required Date</th><th scope="col" class="text-end">Total Requirement</th><th scope="col" class="text-end">On-hand Available</th><th scope="col" class="text-end">Eligible Incoming</th><th scope="col" class="text-end">Projected Available</th><th scope="col"></th></tr></thead>
             <tbody>@foreach (var row in FilteredRows) {
-                <tr>
+                <tr class="@RowClass(row)">
                     <td>@row.RawMaterialCode - @row.RawMaterialName</td>
+                    <td class="text-end"><span class="badge @(row.ShortageQuantity > 0 ? "text-bg-danger" : "text-bg-success")">@row.ShortageQuantity.ToString("N3", CultureInfo.InvariantCulture)</span></td>
+                    <td>@(row.MaterialRequiredDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
                     <td class="text-end">@row.TotalRequirement.ToString("N3", CultureInfo.InvariantCulture) @row.Unit</td>
                     <td class="text-end">@Math.Max(row.OnHandAvailable, 0).ToString("N3", CultureInfo.InvariantCulture) @if (row.OnHandAvailable < 0) { <span class="badge text-bg-danger ms-1">Negative</span> }</td>
                     <td class="text-end">@row.EligibleIncoming.ToString("N3", CultureInfo.InvariantCulture)</td>
                     <td class="text-end">@Math.Max(row.ProjectedAvailable, 0).ToString("N3", CultureInfo.InvariantCulture)</td>
-                    <td class="text-end"><span class="badge @(row.ShortageQuantity > 0 ? "text-bg-danger" : "text-bg-success")">@row.ShortageQuantity.ToString("N3", CultureInfo.InvariantCulture)</span></td>
-                    <td>@(row.MaterialRequiredDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
-                    <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => Select(row)">Detail</button></td>
+                    <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectAsync(row)">Detail</button></td>
                 </tr>
             }</tbody>
         </table>
@@ -43,11 +55,14 @@ else
 
 @if (Selected is not null)
 {
-    <h2 class="h4 mt-4">@Selected.RawMaterialCode Detail</h2>
+    <h2 class="h4 mt-4" id="shortage-detail">@Selected.RawMaterialCode Detail</h2>
     <p class="text-muted">Every figure is reported at evaluation date @(Selected.EvaluationDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-").</p>
 
     <h3 class="h5">Affected Orders</h3>
-    @if (Selected.AffectedOrders.Count == 0) { <div class="alert alert-light">No active plan requires this material.</div> }
+    @if (Selected.AffectedOrders.Count == 0)
+    {
+        <EmptyState Message="No active plan requires this material." />
+    }
     else
     {
         <div class="table-responsive">
@@ -57,7 +72,10 @@ else
     }
 
     <h3 class="h5">Late Purchase Orders</h3>
-    @if (Selected.LatePurchaseOrders.Count == 0) { <div class="alert alert-light">No late purchase order affects this material.</div> }
+    @if (Selected.LatePurchaseOrders.Count == 0)
+    {
+        <EmptyState Message="No late purchase order affects this material." />
+    }
     else
     {
         <div class="alert alert-warning">Late purchase orders are shown for visibility and are never counted as eligible incoming supply.</div>
@@ -70,18 +88,24 @@ else
     <AuthorizeView Policy="@PolicyNames.CanCreatePurchaseRequest">
         <Authorized Context="purchaseAuthorization">
             <h3 class="h5 mt-3">Create Purchase Request</h3>
-            @if (Selected.ShortageQuantity <= 0) { <div class="alert alert-light">A purchase request can only be raised while a shortage remains.</div> }
-            else if (Selected.AffectedOrders.Count == 0) { <div class="alert alert-light">No active plan is available to source the request.</div> }
+            @if (Selected.ShortageQuantity <= 0)
+            {
+                <EmptyState Message="A purchase request can only be raised while a shortage remains." />
+            }
+            else if (Selected.AffectedOrders.Count == 0)
+            {
+                <EmptyState Message="No active plan is available to source the request." />
+            }
             else
             {
                 <EditForm Model="Input" OnValidSubmit="CreateAsync">
                     <DataAnnotationsValidator /><ValidationSummary />
                     <div class="row g-2">
-                        <div class="col-md-4"><label class="form-label">Source plan</label><InputSelect class="form-select" @bind-Value="Input.SourceProductionPlanId"><option value="0">Select plan</option>@foreach (var order in Selected.AffectedOrders) { <option value="@order.ProductionPlanId">@order.PlanNumber (@order.OrderNumber)</option> }</InputSelect></div>
-                        <div class="col-md-4"><label class="form-label">Requested quantity</label><InputNumber class="form-control" @bind-Value="Input.RequestedQuantity" /></div>
-                        <div class="col-md-4"><label class="form-label">Expected date</label><InputDate class="form-control" @bind-Value="Input.ExpectedDate" /></div>
+                        <div class="col-md-4"><label class="form-label" for="request-plan">Source plan</label><InputSelect id="request-plan" class="form-select" @bind-Value="Input.SourceProductionPlanId"><option value="0">Select plan</option>@foreach (var order in Selected.AffectedOrders) { <option value="@order.ProductionPlanId">@order.PlanNumber (@order.OrderNumber)</option> }</InputSelect></div>
+                        <div class="col-md-4"><label class="form-label" for="request-quantity">Requested quantity</label><InputNumber id="request-quantity" class="form-control" @bind-Value="Input.RequestedQuantity" /></div>
+                        <div class="col-md-4"><label class="form-label" for="request-expected">Expected date</label><InputDate id="request-expected" class="form-control" @bind-Value="Input.ExpectedDate" /></div>
                     </div>
-                    <button class="btn btn-primary mt-2" type="submit">Create draft purchase request</button>
+                    <button class="btn btn-primary mt-2" type="submit" disabled="@Submitting">@(Submitting ? "Creating..." : "Create draft purchase request")</button>
                 </EditForm>
             }
         </Authorized>
@@ -95,6 +119,8 @@ else
     private string? Message;
     private StatusMessage.MessageKind MessageKind = StatusMessage.MessageKind.Info;
     private bool ShortageOnly;
+    private bool Submitting;
+    private int ShortCount => Rows.Count(x => x.ShortageQuantity > 0);
     private IReadOnlyCollection<MaterialShortageDto> FilteredRows => ShortageOnly ? Rows.Where(x => x.ShortageQuantity > 0).ToArray() : Rows;
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
@@ -105,7 +131,14 @@ else
         if (Selected is not null) Selected = Rows.SingleOrDefault(x => x.RawMaterialId == Selected.RawMaterialId);
     }
 
-    private void Select(MaterialShortageDto row)
+    // Selection wins over the shortage tint: it marks where the operator is looking, and the
+    // shortage is still called out by the red badge in the row itself.
+    private string? RowClass(MaterialShortageDto row) =>
+        Selected?.RawMaterialId == row.RawMaterialId ? "table-active"
+        : row.ShortageQuantity > 0 ? "table-danger"
+        : null;
+
+    private async Task SelectAsync(MaterialShortageDto row)
     {
         Selected = row;
         Input = new RequestInput
@@ -114,11 +147,17 @@ else
             RequestedQuantity = row.ShortageQuantity,
             ExpectedDate = row.MaterialRequiredDate ?? TimeProvider.GetUtcNow().UtcDateTime.Date.AddDays(1)
         };
+
+        // The panel renders below a table that runs past the fold, so clicking Detail on a low row
+        // used to look like nothing happened.
+        try { await JS.InvokeVoidAsync("aiFactoryScrollIntoView", "shortage-detail"); }
+        catch (JSException) { /* the panel is open and reachable by scrolling */ }
     }
 
     private async Task CreateAsync()
     {
-        if (Selected is null) return;
+        if (Selected is null || Submitting) return;
+        Submitting = true;
         try
         {
             var created = await Shortages.CreatePurchaseRequestAsync(
@@ -128,6 +167,7 @@ else
             await ReloadAsync();
         }
         catch (Exception ex) when (UserFacingError.IsExpected(ex)) { Message = ex.Message; MessageKind = StatusMessage.MessageKind.Error; }
+        finally { Submitting = false; }
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;

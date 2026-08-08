@@ -26,7 +26,22 @@ public sealed class MaterialShortageService(
         var affected = await LoadAffectedOrdersAsync(materialIds, cancellationToken);
         var late = await LoadLatePurchaseOrdersAsync(materialIds, cancellationToken);
 
-        return withDemand.Select(x => Map(x, affected, late)).ToArray();
+        // Shortage-bearing rows first, then by the date the material is actually needed, then by
+        // code. The list came back ordered by raw-material code alone, so a material short by
+        // 1,250 kg sat below fully-covered ones purely because of its name - on the screen whose
+        // entire job is to surface shortages.
+        //
+        // Presentation order only: every figure is exactly what MaterialAvailabilityRules produced,
+        // and "which needs attention" is decided by the existing ShortageQuantity and
+        // MaterialRequiredDate rather than by any new notion of severity. Ordering lives here and
+        // not in the page so the screen, /api/reports/material-shortage and the CSV export all
+        // agree.
+        return withDemand
+            .Select(x => Map(x, affected, late))
+            .OrderByDescending(x => x.ShortageQuantity > 0)
+            .ThenBy(x => x.MaterialRequiredDate ?? DateTime.MaxValue)
+            .ThenBy(x => x.RawMaterialCode, StringComparer.Ordinal)
+            .ToArray();
     }
 
     public async Task<MaterialShortageDto?> GetAsync(long rawMaterialId, CancellationToken cancellationToken = default)

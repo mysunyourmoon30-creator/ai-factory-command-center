@@ -176,6 +176,32 @@ and are closed; this series covers the other eight routes plus the defects that 
 | G20 | `/production-plans`, `/material-shortages`, `/procurement` | Clicking "Detail" on a row near the bottom of the table looked like it did nothing — the panel it opened was below the fold, with no indication of which row was selected. Selected row is now marked and the panel is scrolled to (respecting `prefers-reduced-motion`). | Medium | **Closed (C5/C6/C7)** |
 | G21 | `/production-plans` | ~~The list eagerly `Include`s four related graphs, including every plan's material requirements, to render a seven-column table.~~ **Measured, not a defect — no change made.** See below. | — | **Withdrawn (C5)** |
 
+| G22 | `/material-shortages` | **Shortages did not stand out.** Rows came back ordered by raw-material code alone, so a material short by 1,250 kg sat below fully-covered ones purely because of its name — on the screen whose entire job is to surface shortages. See the proof below. | High | **Closed (C6)** |
+| G23 | `/material-shortages` | Shortage and required date — the two figures the decision turns on — were the sixth and seventh columns, behind the supply breakdown that explains them. Now they lead the row, and short rows are tinted. | Medium | **Closed (C6)** |
+
+#### G22 — reordering proved, with the numbers proved unchanged
+
+The canonical dataset cannot demonstrate this on its own: its only shortage is on **RM-001**, which
+is also alphabetically first, so the old and new orders happen to coincide. A second shortage was
+therefore manufactured through the API — `RM-005` starved from 8,000 to 1,000 on-hand — and removed
+again afterwards:
+
+| # | before (code order) | after (shortage first, then required date) |
+|---|---|---|
+| 1 | RM-001 — short 1,250, needed 2026-08-09 | **RM-005 — short 2,450, needed 2026-08-08** |
+| 2 | RM-002 — covered | RM-001 — short 1,250, needed 2026-08-09 |
+| … | … | covered materials, in code order |
+| 5 | **RM-005 — short 2,450** | — |
+
+RM-005 moved from fifth, below four fully-covered materials, to first — and ahead of RM-001 because
+it is needed a day sooner, which is the intended tie-break. Urgency comes from the existing
+`MaterialRequiredDate`, not from any newly invented notion of severity.
+
+`RM-005` was then restored and the CSV export re-captured: **byte-identical** to the pre-change
+baseline, and the canonical KPI is still 10 / 8 / 1 / 0 with RM-001 short by 1,250.000. The ordering
+lives in the service rather than the page so the screen, `/api/reports/material-shortage` and the
+CSV export cannot disagree.
+
 #### G21 — measured before optimising, then left alone
 
 The plan flagged the four-deep `Include` chain in `ProductionPlanService.Query()` as a candidate for
