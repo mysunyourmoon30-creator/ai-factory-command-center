@@ -100,7 +100,10 @@ public sealed class CopilotService(
             }
 
             await WriteExecutionLogAsync(requestId, tool.Name, userId, recordCount, stopwatch, "Success", null, cancellationToken);
-            return validated;
+            // Stamped here, after validation, from the tool this orchestrator chose. The validator
+            // never reads these from the response JSON, so the model cannot name a source it did
+            // not actually use.
+            return validated with { ToolName = tool.Name, ToolPurpose = tool.Purpose };
         }
         catch (Exception exception)
         {

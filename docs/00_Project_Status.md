@@ -184,6 +184,10 @@ and are closed; this series covers the other eight routes plus the defects that 
 | G26 | `/procurement` | Reject is terminal — a rejected request cannot be resubmitted — and sat one tab-stop from a green Approve with no confirmation. Now two steps. | Medium | **Closed (C7)** |
 | G27 | `/procurement` | The "Late" figure was the one hand-rolled tile in a row of `KpiCard`s, and stayed grey whatever it read. Also added an Outstanding column to the item table, since ordered-minus-received is what the receipt decision turns on. | Low | **Closed (C7)** |
 
+| G28 | `/ai-copilot` | The answer named no source. `CopilotResponseDto` gained a server-populated `ToolName`/`ToolPurpose`, stamped by the orchestrator from the tool it selected. `CopilotResponseValidator` never reads these out of the model's JSON, so a response structurally cannot claim a source it did not use — asserted by a test that feeds the model `"toolName": "GetEverything"` and checks the real tool wins. Null on the no-match and fallback paths, where no tool ran. | Medium | **Closed (C8)** |
+| G29 | `/ai-copilot` | System data and model suggestions rendered as indistinguishable bulleted lists. Affected Orders is now labelled "from system data", Recommended Actions "AI suggestion" with a line saying it came from the model and not a business rule. | Medium | **Closed (C8)** |
+| G30 | `/ai-copilot` | No `aria-live` on the thinking/result region, and no `maxlength` — a 2,000-character question travelled to the server purely to be rejected against `MaxQuestionLength`. | Low | **Closed (C8)** |
+
 #### G22 — reordering proved, with the numbers proved unchanged
 
 The canonical dataset cannot demonstrate this on its own: its only shortage is on **RM-001**, which

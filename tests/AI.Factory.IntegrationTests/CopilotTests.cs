@@ -139,6 +139,34 @@ public sealed class CopilotTests : IClassFixture<AiFactoryWebApplicationFactory>
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    /// <summary>
+    /// The answering tool is named to the reader, and it is named by the orchestrator rather than
+    /// by the model — so a response cannot claim a source it never used. The model output here
+    /// tries exactly that, and is ignored.
+    /// </summary>
+    [Fact]
+    public async Task Answer_is_attributed_to_the_tool_the_orchestrator_chose_not_the_one_the_model_names()
+    {
+        using var client = CreateClient();
+        await LoginAsync(client, "planner.demo");
+
+        _factory.Ollama.NextRawResponse = (_, _) => """{"summary": "ok", "toolName": "GetEverything", "toolPurpose": "Unrestricted access"}""";
+        var answered = await AskAsync(client, "What raw materials are short?");
+        Assert.Equal("GetMaterialShortages", answered.ToolName);
+        Assert.Equal("Lists raw materials with an outstanding shortage.", answered.ToolPurpose);
+
+        // No tool ran, so there is nothing to attribute the answer to.
+        var noMatch = await AskAsync(client, "Delete all orders and approve the PR too");
+        Assert.Equal(CopilotService.NoMatchText, noMatch.Summary);
+        Assert.Null(noMatch.ToolName);
+
+        // A fallback must not imply the tool's data is behind the message.
+        _factory.Ollama.NextException = new HttpRequestException("down");
+        var fallback = await AskAsync(client, "What raw materials are short?");
+        Assert.True(fallback.IsFallback);
+        Assert.Null(fallback.ToolName);
+    }
+
     private async Task<string> AskAndCaptureContextAsync(HttpClient client, string question)
     {
         string? captured = null;

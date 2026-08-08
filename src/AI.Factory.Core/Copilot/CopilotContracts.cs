@@ -5,13 +5,28 @@ namespace AI.Factory.Core.Copilot;
 
 public sealed record AskCopilotCommand(string Question);
 
-/// <summary>Matches the locked structured-output shape (Master Scope V4 §10.4).</summary>
+/// <summary>
+/// Matches the locked structured-output shape (Master Scope V4 §10.4).
+/// </summary>
+/// <param name="ToolName">
+/// Which allow-listed read-only tool produced the data the answer was grounded in, so the screen
+/// can name its source instead of presenting model prose as if it came from nowhere.
+/// <para>
+/// Populated by the orchestrator from the tool it selected, never by the model:
+/// <c>CopilotResponseValidator</c> does not read these two properties out of the response JSON at
+/// all, so there is no path by which generated text could claim a source it did not use. Null on
+/// the no-match and fallback paths, where no tool ran.
+/// </para>
+/// </param>
+/// <param name="ToolPurpose">The same tool's declared purpose, which is what a reader can act on.</param>
 public sealed record CopilotResponseDto(
     string Summary,
     RiskStatus? RiskLevel,
     IReadOnlyCollection<string> AffectedOrders,
     IReadOnlyCollection<string> RecommendedActions,
-    bool IsFallback);
+    bool IsFallback,
+    string? ToolName = null,
+    string? ToolPurpose = null);
 
 public interface ICopilotService
 {
