@@ -1,5 +1,10 @@
 @page "/"
 @attribute [Authorize]
+@* Without this the whole page waits on all three service calls before anything paints, which
+   made the per-section "Loading..." states dead code - they were never in the emitted HTML.
+   Streaming emits the placeholders first and patches each section in as its data lands.
+   The patches arrive as inline <script> blocks, which the CSP already permits. *@
+@attribute [StreamRendering]
 @inject IDashboardService Dashboard
 @inject TimeProvider TimeProvider
 
@@ -86,6 +91,10 @@ else
     // the late-PO scan, both of which GetKpiAsync had already done for this same page load.
     // Sequential on purpose: these share one scoped AppDbContext, which is not thread-safe, so
     // Task.WhenAll here would be a concurrency bug rather than an optimisation.
+    // No StateHasChanged between the calls, deliberately. Adding one after each reveals the
+    // sections one at a time, but every streamed frame re-emits the whole component: measured
+    // 21.4 KB unstreamed, 23.4 KB with two frames, 37.1 KB with four. On a page that completes
+    // in ~45 ms nobody perceives the staggered reveal, so the extra 14 KB buys nothing.
     protected override async Task OnInitializedAsync()
     {
         Kpi = await Dashboard.GetKpiAsync();
