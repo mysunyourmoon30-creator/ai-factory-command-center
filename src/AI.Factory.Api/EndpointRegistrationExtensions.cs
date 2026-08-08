@@ -63,15 +63,16 @@ public static class EndpointRegistrationExtensions
         var adminUsers = endpoints.MapGroup("/api/admin/users")
             .RequireAuthorization(PolicyNames.CanManageUsers);
 
-        adminUsers.MapGet("/", async (IAdminUserService users, CancellationToken cancellationToken) =>
-            Results.Ok(await users.ListAsync(cancellationToken)));
+        adminUsers.MapGet("/", async (HttpContext context, IAdminUserService users, CancellationToken cancellationToken) =>
+            Results.Ok(await users.ListAsync(context.User, cancellationToken)));
 
         adminUsers.MapPost("/{userId:long}/activation", async (
+            HttpContext context,
             long userId,
             [FromForm] SetActivationRequest request,
             IAdminUserService users,
             CancellationToken cancellationToken) =>
-            await users.SetActiveAsync(userId, request.IsActive, cancellationToken)
+            await users.SetActiveAsync(context.User, userId, request.IsActive, cancellationToken)
                 ? Results.NoContent()
                 : Results.NotFound());
 

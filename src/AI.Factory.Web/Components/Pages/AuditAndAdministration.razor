@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject IAuditLogService AuditLogs
 @inject IAdminUserService AdminUsers
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Audit and Administration</PageTitle>
 <h1>Audit and Administration</h1>
@@ -75,10 +76,22 @@ else
     private IReadOnlyCollection<DemoUser> DemoUsers = [];
     private string? Message;
 
+    // Only load what this actor is actually allowed to see. Previously both calls ran
+    // unconditionally, so a Planner or Viewer opening this page still executed the audit-log
+    // and demo-user queries even though AuthorizeView hid every result (finding A3).
     protected override async Task OnInitializedAsync()
     {
-        await ReloadAuditAsync(1);
-        DemoUsers = await AdminUsers.ListAsync();
+        var actor = await CurrentActorAsync();
+
+        if (actor.IsInRole(RoleNames.Admin) || actor.IsInRole(RoleNames.Manager))
+        {
+            await ReloadAuditAsync(1);
+        }
+
+        if (actor.IsInRole(RoleNames.Admin))
+        {
+            DemoUsers = await AdminUsers.ListAsync(actor);
+        }
     }
 
     private async Task ReloadAuditAsync(int page) =>
@@ -89,8 +102,11 @@ else
 
     private async Task ToggleActiveAsync(DemoUser user)
     {
-        await AdminUsers.SetActiveAsync(user.Id, !user.IsActive);
-        DemoUsers = await AdminUsers.ListAsync();
+        var actor = await CurrentActorAsync();
+        await AdminUsers.SetActiveAsync(actor, user.Id, !user.IsActive);
+        DemoUsers = await AdminUsers.ListAsync(actor);
         Message = $"{user.Username} is now {(user.IsActive ? "inactive" : "active")}.";
     }
+
+    private async Task<System.Security.Claims.ClaimsPrincipal> CurrentActorAsync() => (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
 }

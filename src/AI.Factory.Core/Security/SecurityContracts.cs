@@ -39,8 +39,8 @@ public interface IAuthenticationService
 
 public interface IAdminUserService
 {
-    Task<IReadOnlyCollection<DemoUser>> ListAsync(CancellationToken cancellationToken = default);
-    Task<bool> SetActiveAsync(long userId, bool isActive, CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<DemoUser>> ListAsync(ClaimsPrincipal actor, CancellationToken cancellationToken = default);
+    Task<bool> SetActiveAsync(ClaimsPrincipal actor, long userId, bool isActive, CancellationToken cancellationToken = default);
 }
 
 public interface IAuditWriter
