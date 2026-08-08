@@ -7,7 +7,12 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            @* Plain onclick, not @onclick: the toggle must work during prerender and while the
+               Interactive Server circuit is reconnecting. See wwwroot/theme.js. *@
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="aiFactoryToggleTheme()"
+                    title="Switch between light and dark" aria-label="Switch between light and dark theme">
+                <span class="theme-icon-light" aria-hidden="true">&#x1F319;</span><span class="theme-icon-dark" aria-hidden="true">&#x2600;</span>
+            </button>
         </div>
 
         <article class="content px-4">

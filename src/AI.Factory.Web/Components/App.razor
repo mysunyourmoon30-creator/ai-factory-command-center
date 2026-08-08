@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="@Assets["AI.Factory.Web.styles.css"]" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
+    @* Synchronous and before <body> on purpose - see theme.js: any later and the light theme flashes first. *@
+    <script src="@Assets["theme.js"]"></script>
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 

@@ -47,6 +47,46 @@
     --bs-link-hover-color: #094db1;
 }
 
+/*
+ * Dark theme. Bootstrap 5.3 restyles its own components off [data-bs-theme="dark"], so this
+ * only has to redefine the tokens above; everything layered on them follows. theme.js sets the
+ * attribute on <html> before first paint.
+ */
+[data-bs-theme="dark"] {
+    --af-surface: #1c2128;
+    --af-surface-sunken: #12161c;
+    --af-border: #303842;
+    --af-text: #e3e7ec;
+    --af-text-muted: #97a3b1;
+    --af-shadow-sm: 0 1px 2px rgb(0 0 0 / 40%), 0 1px 3px rgb(0 0 0 / 30%);
+
+    --bs-body-color: var(--af-text);
+    --bs-body-bg: var(--af-surface-sunken);
+    --bs-border-color: var(--af-border);
+    --bs-link-color: #74a9ff;
+    --bs-link-hover-color: #9cc2ff;
+    --bs-secondary-color: var(--af-text-muted);
+}
+
+/* Bootstrap's .text-muted resolves through its own variable, which the token above drives. */
+[data-bs-theme="dark"] .text-muted {
+    color: var(--af-text-muted) !important;
+}
+
+/* Theme toggle icon: swapped in CSS rather than by script, so it stays correct through
+   Blazor re-renders and enhanced navigation without any JS bookkeeping. */
+.theme-icon-dark {
+    display: none;
+}
+
+[data-bs-theme="dark"] .theme-icon-light {
+    display: none;
+}
+
+[data-bs-theme="dark"] .theme-icon-dark {
+    display: inline;
+}
+
 body {
     -webkit-font-smoothing: antialiased;
     line-height: 1.55;
