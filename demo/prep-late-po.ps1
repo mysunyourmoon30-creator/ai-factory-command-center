@@ -93,10 +93,26 @@ SELECT 'PO-DEMO-001' AS PurchaseOrderNumber, @LateDate AS ExpectedDate, DATEDIFF
 $tempFile = [System.IO.Path]::GetTempFileName() + '.sql'
 try {
     Set-Content -Path $tempFile -Value $sql -Encoding UTF8
-    sqlcmd -S $Server -d $Database -I -i $tempFile
+    # -b makes sqlcmd exit non-zero on a T-SQL error, not only on a connection failure.
+    # Without it (and without the check below) a failed run still printed the green
+    # "Done." message, which is exactly how a silently-empty seed goes unnoticed.
+    sqlcmd -S $Server -d $Database -I -b -i $tempFile
+    $sqlcmdExit = $LASTEXITCODE
 }
 finally {
     Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+}
+
+if ($sqlcmdExit -ne 0) {
+    throw @"
+sqlcmd failed with exit code $sqlcmdExit against '$Server' - nothing was changed.
+
+If this was a connection timeout, LocalDB's '(localdb)\MSSQLLocalDB' alias can go stale
+while the SQL Server process is still running. Check the real state with:
+    SqlLocalDB.exe info MSSQLLocalDB
+and if a LOCALDB#* named pipe exists, connect through it directly:
+    .\demo\prep-late-po.ps1 -Server 'np:\\.\pipe\LOCALDB#XXXXXXXX\tsql\query'
+"@
 }
 
 if ($Cleanup) {
