@@ -622,5 +622,7 @@ logged as a "Day 15" — the locked roadmap only defines Days 1-14.
   _incoming_po` asserts PR-BASE-001/PO-BASE-001's exact shape and, as a direct regression guard,
   that RM-001's `ShortageQuantity` is still 1,250 and `EligibleIncoming` is still 0 with the new
   row present — the concrete proof the date-based resolution holds, not just an assumption.
-- Latest verification: 199 passed (89 unit + 110 integration), 0 failed; build 0 warnings/errors;
-  `dotnet format --verify-no-changes` passed; 14 application tables unchanged (no migration).
+- Verification at the time of that seed follow-up: 199 passed (89 unit + 110 integration), 0 failed;
+  build 0 warnings/errors; `dotnet format --verify-no-changes` passed; 14 application tables
+  unchanged (no migration). The suite now stands at **204** (93 unit + 111 integration) after the
+  G-series audit added five ordinary tests; the 15 Required tests are unchanged.
