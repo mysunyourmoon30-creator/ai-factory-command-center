@@ -1,8 +1,9 @@
 # Demo Video Talking Points
 
 Recording script for the AI Factory Command Center walkthrough. Follows the locked Demo Scenario
-flow through all 11 modules. Read top to bottom, or skip a beat if you're short on time — each one
-is self-contained. Concrete numbers below are the actual canonical-seed figures verified in
+flow through all 11 modules, plus one optional beat for the Executive Overview screen added after
+the lock. Read top to bottom, or skip a beat if you're short on time — each one is self-contained.
+Concrete numbers below are the actual canonical-seed figures verified in
 `docs/00_Project_Status.md`'s acceptance evidence, not made up for the video.
 
 **Before recording**, in order:
@@ -38,7 +39,7 @@ procurement, and risk-monitoring system. One flow: customer orders drive product
 production plans drive material requirements, shortages drive purchase requests and incoming POs,
 and a Dashboard / AI Copilot / Machine Monitoring layer surfaces risk in real time. It's a .NET 10
 modular monolith — Blazor Server UI and a JSON API sharing the exact same application services, one
-SQL Server database, 14 tables, 11 modules, 4 roles. 204 automated tests cover all 15 required
+SQL Server database, 14 tables, 11 modules, 4 roles. 216 automated tests cover all 15 required
 business scenarios."
 
 ## Beat 1 — Login & roles (30s)
@@ -115,6 +116,25 @@ business scenarios."
 - Export one CSV report and mention the formula-injection defenses quietly protecting every export
   (`=`, `+`, `-`, `@` prefixes get neutralized) — don't dwell, just a one-liner.
 
+## Beat 6b — Executive Overview (25s, optional)
+
+Skip this one if you're cutting for time — it is the post-lock addition, not part of the locked
+flow, and the Closing already mentions it.
+
+- Stay on `admin.demo` or `manager.demo`. The **Executive Overview** link only appears for those two
+  in the sidebar; `planner.demo` and `viewer.demo` don't see it.
+- Open it. The point to make is what it *doesn't* do: "This isn't a second dashboard. It only shows
+  what the Dashboard reports as a single number, broken down — 9 orders on track against 1 critical,
+  and where the 10 orders sit in their lifecycle: 2 Draft, 5 Planned, 1 In Production, 2 Completed."
+- Point at **Awaiting Approval** under Procurement: "approving purchase requests is the Manager's
+  actual permission in this system, and until this screen there was no number for it anywhere."
+- One sentence worth saying out loud if you're asked about scope discipline: "There's no revenue or
+  trend chart on here, and that's deliberate — the schema has no price column and no history table,
+  so rather than invent numbers I left them off and wrote down why."
+- If someone asks whether hiding the sidebar link is the security control: **it isn't, say so.** The
+  page serves all four roles; the link is hidden for relevance. Everything on it is already readable
+  by every role on the screens it summarises.
+
 ## Beat 7 — Machine Monitoring, live (30s)
 
 - Switch to `admin.demo`. Open Machine Monitoring.
@@ -179,9 +199,11 @@ will not see them, and pointing at them on camera will point at nothing.
 
 "That's the full flow — customer order to production plan to material shortage to purchase
 request to incoming PO, with a Dashboard, AI Copilot, and Machine Monitoring layer watching risk
-throughout. Everything you saw is backed by 204 automated tests, and the scope was deliberately
-locked from day one: 14 tables, 11 modules, 4 roles, 3 machines, 4 read-only AI tools — no scope
-creep, no Docker, no microservices, nothing added beyond what the spec named."
+throughout. Everything you saw is backed by 216 automated tests, and the scope was deliberately
+locked from day one: 14 tables, 11 modules, 4 roles, 3 machines, 4 read-only AI tools. One screen
+was added after that lock — the Executive Overview — and rather than quietly folding it into the
+numbers, it's written up as a recorded departure in the scope document, with what it does and does
+not change. No Docker, no microservices, no other scope creep."
 
 ---
 

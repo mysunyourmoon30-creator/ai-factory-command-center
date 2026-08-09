@@ -5,7 +5,7 @@ The authoritative source supplied for this implementation is `00_Master_Scope_Fi
 ## Locked totals
 
 - 1 portfolio project, business flow, and demo scenario
-- 11 system modules and screens
+- 11 system modules and screens **+ 1 post-lock addition** (see "Deliberate departures" below)
 - 12 AI engineering topics
 - 4 report views, roles, and runtime AI tools
 - 3 machines
@@ -25,6 +25,25 @@ The authoritative source supplied for this implementation is `00_Master_Scope_Fi
 ## Day 1 boundary
 
 Day 1 includes solution topology, dependency direction, 14-table entity/schema contracts, constraints and indexes, TimeProvider policy, initial EF migration, empty-database application, build, smoke verification, and status evidence. It excludes Day 2–14 business and UI features.
+
+## Deliberate departures from the locked totals
+
+This section exists so a departure is recorded rather than quietly absorbed into the numbers above.
+The authoritative V4 document and its checksum are unchanged — the source did not move; this
+repository did.
+
+**2026-08-09 — Executive Overview (`/executive`), a 12th screen.** Added at the project owner's
+explicit request after the alternative was recommended and declined: the Dashboard is already the
+read-only KPI screen, and `Manager` is already the executive-shaped role. Scope of the addition,
+kept as small as the request allows:
+
+- 1 screen, 1 read-only application service (`IExecutiveService`), 1 read endpoint
+  (`GET /api/executive/overview`).
+- **No** new table, migration, role, named authorization policy, AI tool, or business rule. The 14
+  application tables, 4 roles, 3 machines, 4 AI tools, 11 policies, and 15 Required tests are all
+  unchanged.
+- Every figure on the screen is an existing calculation grouped or sorted for display, and
+  `ExecutiveTests` asserts the cross-checks that hold it to the Dashboard's numbers.
 
 ## Locked corrections
 

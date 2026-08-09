@@ -170,6 +170,11 @@ Four read-only SQL views (`vw_ProductionRiskReport`, `vw_MaterialShortageReport`
 | 9 | AI Factory Copilot (4 allow-listed read-only tools, Ollama-backed) | read-only, all roles |
 | 10 | Machine Monitoring (SignalR live push, Simulate Update) | Admin (simulate only) |
 | 11 | Audit Log + Demo User Management | Admin, Manager (view); Admin (manage users) |
+| 12* | Executive Overview (risk/pipeline/procurement roll-up) | read-only, all roles |
+
+\* Module 12 sits outside the locked eleven — a deliberate post-lock addition, recorded under
+"Deliberate departures" in [`docs/00_Master_Scope.md`](docs/00_Master_Scope.md). It is read-only and
+adds no table, role, policy, AI tool, or business rule.
 
 ## Getting started
 
@@ -221,3 +226,7 @@ application tables, 15 required business tests. No Docker, cloud deployment, mic
 WebAssembly, AI write-access, or additional scope — see
 [`docs/00_Master_Scope.md`](docs/00_Master_Scope.md) for the complete locked boundary and
 [`docs/00_Project_Status.md`](docs/00_Project_Status.md) for day-by-day proof every boundary held.
+
+Exactly one departure has been made and it is recorded rather than absorbed: the Executive Overview
+screen (module 12 above), added after the build was complete. Every other total is untouched — still
+14 tables, 4 roles, 3 machines, 4 AI tools, 11 authorization policies, 15 required business tests.

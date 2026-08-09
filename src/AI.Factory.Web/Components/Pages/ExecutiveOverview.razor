@@ -1,0 +1,200 @@
+@page "/executive"
+@attribute [Authorize]
+@* Same reason as Home: without streaming the page waits on the whole service call before
+   anything paints, and the loading state never reaches the browser. *@
+@attribute [StreamRendering]
+@inject IExecutiveService Executive
+
+<PageTitle>Executive Overview</PageTitle>
+
+@if (Overview is null)
+{
+    <EmptyState Message="Loading executive overview..." Loading="true" />
+}
+else
+{
+    <p class="text-muted" style="font-size: var(--af-text-sm);">
+        Read live from the database as of @Overview.AsOfDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture).
+        Every figure is the same calculation the operational screens run &mdash; this page groups them, it does not recompute them.
+    </p>
+
+    @* Delivery risk leads, not the pipeline: "will we deliver on time" is the question this
+       screen exists to answer, and the pipeline below is the context for it. *@
+    <h2 class="h4 mt-4">Delivery Outlook</h2>
+    <p class="text-muted mb-2" style="font-size: var(--af-text-sm);">
+        Customer orders by computed delivery risk. Warning and Critical together are the dashboard's
+        <a href="">Orders at Risk</a> figure.
+    </p>
+    @* Bar plus legend only. A row of KPI cards under it restated the same three numbers a second
+       time, which is the duplication this screen exists to avoid - and the Dashboard already owns
+       the card idiom. The proportion is what this page adds. *@
+    @Bar("Customer orders by delivery risk", RiskSegments, Overview.DeliveryRisk.Total)
+    <p class="mt-2 mb-0"><a href="orders">Open Customer Orders to work the list</a></p>
+
+    <h2 class="h4 mt-4">Order Pipeline</h2>
+    <p class="text-muted mb-2" style="font-size: var(--af-text-sm);">
+        Where the @Overview.Pipeline.Total customer orders currently sit in their lifecycle.
+    </p>
+    @Bar("Customer orders by lifecycle status", PipelineSegments, Overview.Pipeline.Total)
+
+    <h2 class="h4 mt-4">Procurement</h2>
+    <p class="text-muted mb-2" style="font-size: var(--af-text-sm);">
+        Requests waiting on a decision, and purchase orders still owed to the factory.
+    </p>
+    <div class="row g-3 row-cols-1 row-cols-sm-2 mb-3">
+        <div class="col"><KpiCard Label="Awaiting Approval" Value="@Overview.Procurement.RequestsPendingApproval" Icon="procurement" Tone="@Warn(Overview.Procurement.RequestsPendingApproval)" Caption="Purchase requests needing a Manager decision" Href="procurement" /></div>
+        <div class="col"><KpiCard Label="Late Purchase Orders" Value="@Overview.Procurement.PurchaseOrdersLate" Icon="procurement" Tone="@Danger(Overview.Procurement.PurchaseOrdersLate)" Caption="Past their expected date with quantity outstanding" Href="procurement" /></div>
+    </div>
+    <div class="row g-3">
+        <div class="col-12 col-lg-6">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th scope="col">Purchase Request</th><th scope="col" class="text-end">Count</th></tr></thead>
+                    <tbody>
+                        @foreach (var (status, count) in RequestCounts)
+                        {
+                            <tr><td><StatusBadge PurchaseRequest="status" /></td><td class="text-end">@count</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th scope="col">Incoming Purchase Order</th><th scope="col" class="text-end">Count</th></tr></thead>
+                    <tbody>
+                        @foreach (var (status, count) in PurchaseOrderCounts)
+                        {
+                            <tr><td><StatusBadge IncomingPurchaseOrder="status" /></td><td class="text-end">@count</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="h4 mt-4">Biggest Material Shortages</h2>
+    @if (Overview.TopShortages.Count == 0)
+    {
+        <EmptyState Message="Nothing is short right now."
+                    Hint="Every raw material with active demand has enough projected supply." />
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead><tr><th scope="col">Raw Material</th><th scope="col" class="text-end">Shortage</th><th scope="col">Needed By</th></tr></thead>
+                <tbody>
+                    @foreach (var shortage in Overview.TopShortages)
+                    {
+                        <tr>
+                            <td class="text-break">@shortage.RawMaterialCode - @shortage.RawMaterialName</td>
+                            <td class="text-end"><span class="badge text-bg-danger">@shortage.ShortageQuantity.ToString("N3", CultureInfo.InvariantCulture) @shortage.Unit</span></td>
+                            <td>@(shortage.MaterialRequiredDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "-")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="mb-0"><a href="material-shortages">Open Material Shortage for the full list</a></p>
+    }
+
+    <h2 class="h4 mt-4">Machines</h2>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th scope="col">Machine</th><th scope="col">Running</th><th scope="col">Alert</th><th scope="col">Last Updated</th></tr></thead>
+            <tbody>
+                @foreach (var machine in Overview.Machines)
+                {
+                    <tr>
+                        @* Running/Stopped stays uncoloured here on purpose - StatusBadge documents
+                           that it deliberately does not own that mapping, and Machine Monitoring's
+                           own RunningClass explains why a stopped machine is amber rather than red.
+                           Duplicating either decision on this screen would create a third opinion. *@
+                        <td>@machine.MachineCode - @machine.MachineName</td>
+                        <td>@machine.RunningStatus</td>
+                        <td><StatusBadge Risk="machine.AlertStatus" /></td>
+                        <td>@machine.LastUpdated.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="mb-0"><a href="machine-monitoring">Open Machine Monitoring for live values</a></p>
+}
+
+@code {
+    private sealed record Segment(string Label, int Count, string ColourClass);
+
+    /// <summary>
+    /// A stacked proportion bar. Bootstrap 5.3's progress-stacked, so there is no bespoke CSS and
+    /// it follows the light/dark theme on its own.
+    /// </summary>
+    private RenderFragment Bar(string label, IReadOnlyList<Segment> segments, int total) => @<text>
+        <div class="progress-stacked" aria-label="@label">
+            @foreach (var segment in segments.Where(x => x.Count > 0))
+            {
+                <div class="progress" role="progressbar" aria-label="@segment.Label"
+                     aria-valuenow="@segment.Count" aria-valuemin="0" aria-valuemax="@total"
+                     style="width: @Percent(segment.Count, total)%">
+                    <div class="progress-bar @segment.ColourClass"></div>
+                </div>
+            }
+        </div>
+        <ul class="list-unstyled d-flex flex-wrap mb-0 mt-2" style="gap: var(--af-space-4); font-size: var(--af-text-sm);">
+            @foreach (var segment in segments)
+            {
+                <li class="d-flex align-items-center" style="gap: var(--af-space-2);">
+                    <span class="d-inline-block rounded-1 @segment.ColourClass" style="width: 0.7rem; height: 0.7rem;" aria-hidden="true"></span>
+                    <span class="text-muted">@segment.Label</span>
+                    <strong>@segment.Count</strong>
+                </li>
+            }
+        </ul>
+    </text>;
+
+    /// <summary>
+    /// InvariantCulture explicitly: a comma decimal separator in a CSS width would silently drop
+    /// the whole declaration and collapse the bar.
+    /// </summary>
+    private static string Percent(int count, int total) =>
+        total <= 0 ? "0" : (count * 100m / total).ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static KpiCard.KpiTone Warn(int count) => count > 0 ? KpiCard.KpiTone.Warning : KpiCard.KpiTone.Neutral;
+    private static KpiCard.KpiTone Danger(int count) => count > 0 ? KpiCard.KpiTone.Danger : KpiCard.KpiTone.Neutral;
+
+    private ExecutiveOverviewDto? Overview;
+
+    private IReadOnlyList<Segment> RiskSegments =>
+    [
+        new("On track", Overview!.DeliveryRisk.Normal, "bg-success"),
+        new("At risk", Overview.DeliveryRisk.Warning, "bg-warning"),
+        new("Critical", Overview.DeliveryRisk.Critical, "bg-danger")
+    ];
+
+    private IReadOnlyList<Segment> PipelineSegments =>
+    [
+        new("Draft", Overview!.Pipeline.Draft, "bg-secondary"),
+        new("Planned", Overview.Pipeline.Planned, "bg-info"),
+        new("In production", Overview.Pipeline.InProduction, "bg-primary"),
+        new("Completed", Overview.Pipeline.Completed, "bg-success")
+    ];
+
+    private IReadOnlyList<(PurchaseRequestStatus Status, int Count)> RequestCounts =>
+    [
+        (PurchaseRequestStatus.Draft, Overview!.Procurement.RequestsDraft),
+        (PurchaseRequestStatus.PendingApproval, Overview.Procurement.RequestsPendingApproval),
+        (PurchaseRequestStatus.Approved, Overview.Procurement.RequestsApproved),
+        (PurchaseRequestStatus.Rejected, Overview.Procurement.RequestsRejected)
+    ];
+
+    private IReadOnlyList<(IncomingPurchaseOrderStatus Status, int Count)> PurchaseOrderCounts =>
+    [
+        (IncomingPurchaseOrderStatus.Open, Overview!.Procurement.PurchaseOrdersOpen),
+        (IncomingPurchaseOrderStatus.Partial, Overview.Procurement.PurchaseOrdersPartial),
+        (IncomingPurchaseOrderStatus.Received, Overview.Procurement.PurchaseOrdersReceived)
+    ];
+
+    protected override async Task OnInitializedAsync() => Overview = await Executive.GetOverviewAsync();
+}

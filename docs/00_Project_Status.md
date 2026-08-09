@@ -30,6 +30,7 @@ Updated: 2026-08-07 (Asia/Bangkok)
 | Dashboard audit + fixes | Done | Audited the Dashboard screen; 6 findings. Fixed: duplicate page headings (the top bar's title is now the page `<h1>` and the nine page-level duplicates are gone — Production Plans had also disagreed with itself, "Production Plans" vs "Production Plan"), KPI cards made navigable, and the "Daily Factory Summary" block removed from the screen because four of its five figures repeated the KPI cards verbatim. `IDashboardService.GetDailySummaryAsync`, `/api/dashboard/daily-summary` and the `GetDailyFactorySummary` AI tool are the locked §16.11 shape and were left untouched — only the redundant UI block went, and its one non-redundant value (the as-of date) is kept as a caption | D4 also fixed: `[StreamRendering]` on the Dashboard so the placeholders actually reach the browser (verified present in the emitted HTML with `Transfer-Encoding: chunked`). Per-section reveal via `StateHasChanged` was tried and rejected on measurement — each streamed frame re-emits the whole component: 21.4 KB unstreamed, 23.4 KB at two frames, 37.1 KB at four, for a page that completes in ~45 ms. Still not fixed, recorded only: the shortage engine runs twice per load (`GetKpiAsync` + `AlertEvaluationService`), and alert evaluation writes on a read by design | None |
 | Quality pass follow-up: shell overhaul | Done | P4 improved page contents while the shell stayed stock Blazor template — navy-to-purple gradient sidebar, nine flat links, a top bar linking to Microsoft's docs — which is what a viewer sees first. Sidebar moved onto the token surface and grouped into Planning / Procurement / Operations / Administration with inline-SVG icons (`NavIcon`), a brand block, and a user block pinned to the bottom; top bar now carries `Section / Page` from a shared `PageMetadata` route map; `KpiCard` rebuilt with an icon chip and value-driven tone so zero reads neutral and only real numbers get colour, and the four pages still hand-rolling KPI tiles now use it. Verified live: breadcrumb correct on six routes, tones resolve to 1 danger / 3 warning / 3 neutral against the canonical seed, template gradient gone from the served CSS | None | None |
 | Quality pass follow-up: dark mode | Done | `theme.js` applies the stored (or OS-preferred) theme to `<html data-bs-theme>` synchronously from `<head>`, before `<body>`, so no light-theme flash; Bootstrap 5.3 restyles its own components from that attribute and the token layer supplies the rest. Verified live: script served same-origin under the CSP (HTTP 200, `text/javascript`), positioned ahead of `<body>` in the served HTML, and both light and dark `--af-surface` values present in the served stylesheet | None | None — quality pass complete |
+| Executive Overview screen (`/executive`) — **post-lock scope addition** | Done | **Screen 12, added at the project owner's explicit request after the alternative was recommended and declined** — see `docs/00_Master_Scope.md` § "Deliberate departures". Adds 1 screen, 1 read-only service (`IExecutiveService`), 1 read endpoint; adds **no** table, migration, role, named policy, AI tool, or business rule. Content is restricted to what the Dashboard does *not* answer: delivery-risk breakdown, order pipeline by lifecycle status, procurement funnel (incl. "Awaiting Approval", the Manager's actual job, which had no number anywhere), top 5 shortages, machine availability. Verified live on the canonical LocalDB: pipeline total 10 = dashboard `customerOrderCount` 10, risk Warning+Critical 1 = `ordersAtRiskCount` 1, late POs 0 = 0, RM-001 shortage 1,250.000 kg, 3 machines. Nav link shown to Admin/Manager and hidden from Planner/Viewer, with all four roles still HTTP 200 on the page — relevance, not a gate. Measured: 7 queries per service call (~7 ms), ×2 for Blazor's prerender + circuit, the same double-execution every page in this app has. 216/216 automated checks passed | Money and trend-over-time are **absent because the schema cannot support them**, not by oversight: no entity carries a price/cost/amount field, and no snapshot history exists (adding one would be a 15th table and would break `FoundationContractTests` by design). Recorded so it is not re-requested as a defect | None |
 
 ## Day 1 acceptance evidence
 
@@ -102,6 +103,7 @@ Per screen:
 | Screen | Page gate | Action gates (`AuthorizeView`) | Service actor re-check |
 |---|---|---|---|
 | Home (Dashboard) | `[Authorize]` | none — read-only | n/a (read) |
+| Executive Overview | `[Authorize]` | none — read-only | n/a (read) |
 | Material Management | `[Authorize]` | CanManageMasterData | **none — documented exception** |
 | Customer Orders (list) | `[Authorize]` | CanManageOrders | `CustomerOrderService:154` |
 | Customer Order (detail) | `[Authorize]` | CanManageOrders, CanManageProductionPlans | `CustomerOrderService:154`, `ProductionPlanService:145` |
@@ -118,6 +120,14 @@ included); per-action authorization is deferred entirely to `AuthorizeView`. Tha
 design — a Viewer is meant to reach every screen read-only — but it means the service-layer
 re-check is what actually separates roles on the in-process Blazor path, since endpoint policy and
 `ExecuteWriteAsync` antiforgery only run on the JSON API path.
+
+Executive Overview follows that same design. Its **sidebar link** is wrapped in
+`<AuthorizeView Roles="Admin,Manager">`, which is relevance and explicitly **not** a security
+boundary: a Planner or Viewer who types `/executive` gets the page, verified live (all four roles
+HTTP 200; link shown to Admin/Manager, hidden from Planner/Viewer). That is correct rather than a
+gap — every figure the screen shows is already readable by every role on `/orders`, `/procurement`,
+`/material-shortages` and `/machine-monitoring`, so gating it would need a twelfth named policy to
+protect nothing.
 
 ### Findings
 

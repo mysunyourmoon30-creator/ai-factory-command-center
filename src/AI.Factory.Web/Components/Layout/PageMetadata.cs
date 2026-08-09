@@ -11,6 +11,7 @@ public static class PageMetadata
 
     private static readonly (string Route, Entry Meta)[] Routes =
     [
+        ("/executive", new("Overview", "Executive Overview")),
         ("/materials", new("Planning", "Material Management")),
         ("/orders", new("Planning", "Customer Orders")),
         // Longer prefix wins, so the create route keeps its own heading now that the page no

@@ -1,7 +1,6 @@
 @*
-    Grouped by where a screen sits in the business flow rather than one flat list of nine
-    links, so the sidebar reads as the factory's workflow: what is planned, what is bought,
-    what is running.
+    Grouped by where a screen sits in the business flow rather than one flat list of links, so
+    the sidebar reads as the factory's workflow: what is planned, what is bought, what is running.
 *@
 
 <div class="sidebar-brand">
@@ -23,6 +22,16 @@
                 <NavIcon Name="dashboard" /><span>Dashboard</span>
             </NavLink>
         </div>
+
+        @* Hidden from Planner and Viewer for relevance, NOT as a security boundary: the page itself
+           carries only [Authorize] and its endpoint a bare RequireAuthorization, because every
+           figure on it is already readable by every role on the screens it aggregates. A Viewer who
+           types the URL gets the page, and that is correct - hiding a link is never authorization. *@
+        <AuthorizeView Roles="@($"{RoleNames.Admin},{RoleNames.Manager}")">
+            <Authorized>
+                <div class="nav-item"><NavLink class="nav-link" href="executive"><NavIcon Name="executive" /><span>Executive Overview</span></NavLink></div>
+            </Authorized>
+        </AuthorizeView>
 
         <AuthorizeView>
             <Authorized>
