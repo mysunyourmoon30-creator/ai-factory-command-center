@@ -133,22 +133,36 @@ SET IDENTITY_INSERT [MaterialRequirements] OFF;
 
 SET IDENTITY_INSERT [PurchaseRequests] ON;
 INSERT INTO [PurchaseRequests] ([Id], [RequestNumber], [SourceProductionPlanId], [Status], [RequestedByUserId], [RequestedDate], [ApprovedByUserId], [ApprovedDate], [RejectionReason], [CreatedAt]) VALUES
-(1, N'PR-BASE-001', 1, N'Approved', 3, '2026-08-06T00:00:00.0000000', 2, '2026-08-06T00:00:00.0000000', NULL, '2026-08-06T00:00:00.0000000');
+(1, N'PR-BASE-001', 1, N'Approved', 3, '2026-08-06T00:00:00.0000000', 2, '2026-08-06T00:00:00.0000000', NULL, '2026-08-06T00:00:00.0000000'),
+(2, N'PR-BASE-002', 2, N'Approved', 3, '2026-08-06T00:00:00.0000000', 2, '2026-08-06T00:00:00.0000000', NULL, '2026-08-06T00:00:00.0000000'),
+(3, N'PR-BASE-003', 3, N'Approved', 3, '2026-08-06T00:00:00.0000000', 2, '2026-08-06T00:00:00.0000000', NULL, '2026-08-06T00:00:00.0000000'),
+(4, N'PR-BASE-004', 5, N'PendingApproval', 3, '2026-08-06T00:00:00.0000000', NULL, NULL, NULL, '2026-08-06T00:00:00.0000000'),
+(5, N'PR-BASE-005', 7, N'Rejected', 3, '2026-08-06T00:00:00.0000000', NULL, NULL, N'Existing stock covers this requirement; re-raise closer to the required date.', '2026-08-06T00:00:00.0000000'),
+(6, N'PR-BASE-006', 8, N'Draft', 3, '2026-08-06T00:00:00.0000000', NULL, NULL, NULL, '2026-08-06T00:00:00.0000000');
 SET IDENTITY_INSERT [PurchaseRequests] OFF;
 
 SET IDENTITY_INSERT [PurchaseRequestItems] ON;
 INSERT INTO [PurchaseRequestItems] ([Id], [PurchaseRequestId], [RawMaterialId], [RequestedQuantity], [ExpectedDate]) VALUES
-(1, 1, 1, 500.000, '2026-08-16T00:00:00.0000000');
+(1, 1, 1, 500.000, '2026-08-16T00:00:00.0000000'),
+(2, 2, 4, 400.000, '2026-08-14T00:00:00.0000000'),
+(3, 3, 8, 300.000, '2026-08-09T00:00:00.0000000'),
+(4, 4, 6, 250.000, '2026-08-16T00:00:00.0000000'),
+(5, 5, 7, 150.000, '2026-08-16T00:00:00.0000000'),
+(6, 6, 9, 200.000, '2026-08-16T00:00:00.0000000');
 SET IDENTITY_INSERT [PurchaseRequestItems] OFF;
 
 SET IDENTITY_INSERT [IncomingPurchaseOrders] ON;
 INSERT INTO [IncomingPurchaseOrders] ([Id], [PurchaseOrderNumber], [PurchaseRequestId], [ExpectedDate], [ReceivedDate], [Status], [CreatedAt]) VALUES
-(1, N'PO-BASE-001', 1, '2026-08-16T00:00:00.0000000', NULL, N'Open', '2026-08-06T00:00:00.0000000');
+(1, N'PO-BASE-001', 1, '2026-08-16T00:00:00.0000000', NULL, N'Open', '2026-08-06T00:00:00.0000000'),
+(2, N'PO-BASE-002', 2, '2026-08-14T00:00:00.0000000', NULL, N'Partial', '2026-08-06T00:00:00.0000000'),
+(3, N'PO-BASE-003', 3, '2026-08-09T00:00:00.0000000', '2026-08-09T00:00:00.0000000', N'Received', '2026-08-06T00:00:00.0000000');
 SET IDENTITY_INSERT [IncomingPurchaseOrders] OFF;
 
 SET IDENTITY_INSERT [IncomingPurchaseOrderItems] ON;
 INSERT INTO [IncomingPurchaseOrderItems] ([Id], [IncomingPurchaseOrderId], [RawMaterialId], [OrderedQuantity], [ReceivedQuantity]) VALUES
-(1, 1, 1, 500.000, 0.000);
+(1, 1, 1, 500.000, 0.000),
+(2, 2, 4, 400.000, 200.000),
+(3, 3, 8, 300.000, 300.000);
 SET IDENTITY_INSERT [IncomingPurchaseOrderItems] OFF;
 
 -- Alerts: no canonical rows to seed.

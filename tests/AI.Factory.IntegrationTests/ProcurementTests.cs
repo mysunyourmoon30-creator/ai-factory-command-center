@@ -47,6 +47,62 @@ public sealed class ProcurementTests : IClassFixture<AiFactoryWebApplicationFact
         Assert.Equal(0, rm001.EligibleIncoming);
     }
 
+    /// <summary>
+    /// The seed used to hold one Approved request and one Open order, leaving 5 of the 7 procurement
+    /// statuses with nothing behind them - so the screens that exist to show a lifecycle showed one
+    /// point on it. Every status now has a real row.
+    ///
+    /// The second half is the part that matters: the added rows must be invisible to the locked demo
+    /// case. They are, by construction - purchase requests are never read by the availability engine,
+    /// only Open and Partial orders count as incoming supply and the one Partial row sits on RM-004
+    /// which has no shortage, and no added order is late at T. Asserted here rather than trusted,
+    /// because a future edit to this seed would otherwise move a locked figure silently.
+    /// </summary>
+    [Fact]
+    public async Task Canonical_seed_covers_every_procurement_status_without_moving_the_locked_figures()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        // Superset, and anchored to the seeded row numbers below rather than to status uniqueness:
+        // sibling tests in this class share one fixture and legitimately mutate orders - Test 12
+        // records receipts against PO-BASE-001, which turns it Partial mid-run.
+        var requestStatuses = await db.PurchaseRequests.Select(x => x.Status).Distinct().ToListAsync();
+        Assert.All(Enum.GetValues<PurchaseRequestStatus>(), status => Assert.Contains(status, requestStatuses));
+
+        var orderStatuses = await db.IncomingPurchaseOrders.Select(x => x.Status).Distinct().ToListAsync();
+        Assert.All(Enum.GetValues<IncomingPurchaseOrderStatus>(), status => Assert.Contains(status, orderStatuses));
+
+        var partial = await db.IncomingPurchaseOrders.Include(x => x.Items)
+            .SingleAsync(x => x.PurchaseOrderNumber == "PO-BASE-002");
+        Assert.Equal(IncomingPurchaseOrderStatus.Partial, partial.Status);
+        var partialItem = Assert.Single(partial.Items);
+        Assert.True(partialItem.ReceivedQuantity > 0 && partialItem.ReceivedQuantity < partialItem.OrderedQuantity,
+            "A Partial order must be genuinely part-received, not a relabelled Open or Received one.");
+
+        var received = await db.IncomingPurchaseOrders.Include(x => x.Items)
+            .SingleAsync(x => x.PurchaseOrderNumber == "PO-BASE-003");
+        Assert.Equal(IncomingPurchaseOrderStatus.Received, received.Status);
+        Assert.Equal(Assert.Single(received.Items).OrderedQuantity, Assert.Single(received.Items).ReceivedQuantity);
+        Assert.NotNull(received.ReceivedDate);
+
+        var rejected = await db.PurchaseRequests.SingleAsync(x => x.RequestNumber == "PR-BASE-005");
+        Assert.Equal(PurchaseRequestStatus.Rejected, rejected.Status);
+        Assert.False(string.IsNullOrWhiteSpace(rejected.RejectionReason));
+        Assert.Null(rejected.ApprovedByUserId);
+
+        // No added request may block the demo's own "create a purchase request for RM-001" flow.
+        var demoPlan = await db.ProductionPlans.SingleAsync(x => x.PlanNumber == "PP-DEMO-001");
+        var blocking = await db.PurchaseRequests
+            .Where(x => x.SourceProductionPlanId == demoPlan.Id && x.RequestNumber != "PR-BASE-001"
+                && (x.Status == PurchaseRequestStatus.Draft || x.Status == PurchaseRequestStatus.PendingApproval))
+            .CountAsync();
+        Assert.Equal(0, blocking);
+
+        // The locked KPI figures are asserted by DashboardTests, which holds its own fixture and so
+        // sees an unmutated seed. Repeating them here would be flaky for the reason noted above.
+    }
+
     [Fact]
     public async Task Submit_moves_draft_to_pending_approval()
     {

@@ -93,12 +93,17 @@ business scenarios."
 ## Beat 5 — Procurement approval flow (45s)
 
 - Switch to `manager.demo`.
-- Open Procurement → Purchase Request Approval. Show `PR-BASE-001` (Approved) and, if you created
-  one in Beat 4, approve it live — point out the RowVersion-based optimistic concurrency (a stale
-  approval attempt gets a 409, not a silent overwrite).
+- Open Procurement → Purchase Request Approval. The seed carries **all four request statuses** —
+  `PR-BASE-006` Draft, `PR-BASE-004` PendingApproval, `PR-BASE-001/2/3` Approved, `PR-BASE-005`
+  Rejected with its reason — so the whole lifecycle is on screen at once rather than one point on it.
+- If you created a request in Beat 4, approve it live — point out the RowVersion-based optimistic
+  concurrency (a stale approval attempt gets a 409, not a silent overwrite).
 - Note that **Reject takes two clicks** and says so: it's terminal, a rejected request can't be
-  resubmitted, and it sits next to a green Approve.
-- Open Incoming Purchase Order tab, show `PO-BASE-001` (Open). Optionally record a partial receipt.
+  resubmitted, and it sits next to a green Approve. `PR-BASE-005` shows what a rejected one looks
+  like afterwards, reason and all.
+- Open Incoming Purchase Order tab. All three order statuses are seeded: `PO-BASE-001` Open,
+  `PO-BASE-002` Partial (200 of 400 received), `PO-BASE-003` fully Received. Optionally record a
+  partial receipt yourself.
   Read the hint under the quantity box out loud — "Running total, not this delivery" — and explain
   why that matters: the field is cumulative, so the screen names the material it belongs to and
   reseeds when you pick a different one. "Getting this wrong writes one material's total against
