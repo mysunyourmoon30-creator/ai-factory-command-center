@@ -53,6 +53,7 @@ else if (Order is not null)
 
 @code {
     [Parameter] public long? Id { get; set; }
+    private DateTime Today => TimeProvider.GetUtcNow().UtcDateTime.Date;
     private bool Loading = true;
     private bool Submitting;
     private string? Message;
@@ -89,7 +90,20 @@ else if (Order is not null)
                 <div class="col-md-8"><label class="form-label">Customer name</label><InputText class="form-control" @bind-Value="Input.CustomerName" /></div>
                 <div class="col-md-6"><label class="form-label">Formulation</label><InputSelect class="form-select" @bind-Value="Input.FormulationId"><option value="0">Select formulation</option>@foreach (var formula in Formulations) { <option value="@formula.Id">@formula.Code - @formula.Name</option> }</InputSelect></div>
                 <div class="col-md-3"><label class="form-label">Quantity</label><InputNumber class="form-control" @bind-Value="Input.Quantity" /></div>
-                <div class="col-md-3"><label class="form-label">Delivery date</label><InputDate class="form-control" @bind-Value="Input.DeliveryDate" /></div>
+                <div class="col-md-3">
+                    <label class="form-label">Delivery date</label>
+                    <InputDate class="form-control" @bind-Value="Input.DeliveryDate" />
+                    @* A warning, not a block. Back-dating an order that arrived late is a normal
+                       thing to do, so the server still accepts it - but a past date makes the order
+                       Critical the moment it is saved, and that should be a choice rather than a
+                       surprise on the next screen. *@
+                    @if (Input.DeliveryDate.Date < Today)
+                    {
+                        <div class="form-text text-warning-emphasis">
+                            This date has already passed — the order will be Critical risk immediately.
+                        </div>
+                    }
+                </div>
                 <div class="col-md-3"><label class="form-label">Priority</label><InputSelect class="form-select" @bind-Value="Input.Priority"><option>Normal</option><option>High</option><option>Urgent</option></InputSelect></div>
             </div>
             @* Disabled while a submit is in flight. Double-clicking Create used to fire the command

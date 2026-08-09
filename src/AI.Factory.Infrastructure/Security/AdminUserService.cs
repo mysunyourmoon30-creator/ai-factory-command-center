@@ -42,6 +42,15 @@ public sealed class AdminUserService(
     {
         EnsureCanManageUsers(actor);
 
+        // Deactivation now revokes the account's live session at the next security-stamp
+        // revalidation, so an Admin doing this to themselves locks themselves out - and if they are
+        // the only Admin, locks everyone out of user management permanently, with no in-app way
+        // back. Another Admin can still deactivate them; only self-deactivation is refused.
+        if (!isActive && CurrentUserId(actor) == userId)
+        {
+            throw new BusinessConflictException("You cannot deactivate your own account. Ask another Admin to do it.");
+        }
+
         var user = await userManager.FindByIdAsync(userId.ToString());
         if (user is null)
         {
@@ -78,9 +87,13 @@ public sealed class AdminUserService(
         return true;
     }
 
+    private static long? CurrentUserId(ClaimsPrincipal actor) =>
+        long.TryParse(actor.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
+
     // The Blazor UI calls this service in-process, so the endpoint's CanManageUsers policy never
     // runs on that path - the service has to re-check for itself, same as every other mutating
     // service (see MachineService.EnsureCanSimulate).
+
     private static void EnsureCanManageUsers(ClaimsPrincipal actor)
     {
         if (!actor.IsInRole(RoleNames.Admin))

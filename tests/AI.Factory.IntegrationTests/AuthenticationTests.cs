@@ -103,6 +103,45 @@ public sealed class AuthenticationTests : IClassFixture<AiFactoryWebApplicationF
         Assert.True(await AuditExistsAsync("Unauthorized Access", "viewer.demo"));
     }
 
+    /// <summary>
+    /// Deactivation revokes the account's live session at the next security-stamp revalidation, so
+    /// an Admin doing it to themselves locks themselves out — and a sole Admin locks everyone out
+    /// of user management with no in-app way back. Refused for self only; another Admin still can.
+    /// </summary>
+    [Fact]
+    public async Task Admin_cannot_deactivate_their_own_account_but_can_deactivate_someone_else()
+    {
+        using var client = CreateClient();
+        Assert.Equal(HttpStatusCode.Redirect, (await LoginAsync(client, "admin.demo", "Demo@12345")).StatusCode);
+
+        var admin = await client.GetFromJsonAsync<CurrentUser>("/api/auth/me");
+        Assert.NotNull(admin);
+
+        using var self = await SetActivationAsync(client, admin.Id, false);
+        Assert.Equal(HttpStatusCode.Conflict, self.StatusCode);
+
+        // Still signed in, and still an Admin - the refusal must not be a lockout by another name.
+        Assert.NotNull(await client.GetFromJsonAsync<CurrentUser>("/api/auth/me"));
+
+        // The rule is "not yourself", not "nobody".
+        var viewerId = admin.Id == 4 ? 3 : 4;
+        using var other = await SetActivationAsync(client, viewerId, false);
+        Assert.Equal(HttpStatusCode.NoContent, other.StatusCode);
+
+        using var restore = await SetActivationAsync(client, viewerId, true);
+        Assert.Equal(HttpStatusCode.NoContent, restore.StatusCode);
+    }
+
+    private async Task<HttpResponseMessage> SetActivationAsync(HttpClient client, long userId, bool isActive)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, $"/api/admin/users/{userId}/activation")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["IsActive"] = isActive.ToString() })
+        };
+        request.Headers.Add("X-XSRF-TOKEN", await GetAntiforgeryTokenAsync(client));
+        return await client.SendAsync(request);
+    }
+
     [Fact]
     public async Task Logout_clears_session_and_creates_audit()
     {

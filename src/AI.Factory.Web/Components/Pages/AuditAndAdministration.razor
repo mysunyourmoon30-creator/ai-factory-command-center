@@ -103,7 +103,13 @@ else
                                        security-stamp revalidation, so it is worth a second click -
                                        especially since nothing stops an Admin doing it to
                                        themselves. *@
-                                    @if (ConfirmingUserId == user.Id)
+                                    @* The server refuses this outright; saying so here beats
+                                       offering a button that can only fail. *@
+                                    @if (user.IsActive && user.Id == CurrentUserId)
+                                    {
+                                        <span class="text-muted small">Your own account</span>
+                                    }
+                                    else if (ConfirmingUserId == user.Id)
                                     {
                                         <div class="d-flex flex-column gap-1">
                                             <span class="small">@ConfirmationText(user)</span>
@@ -140,6 +146,7 @@ else
     private DateTime? ToInput;
     private IReadOnlyCollection<DemoUser> DemoUsers = [];
     private long? ConfirmingUserId;
+    private long? CurrentUserId;
     private string? Message;
     private StatusMessage.MessageKind MessageKind = StatusMessage.MessageKind.Info;
     private int AuditTotalPages => Math.Max(1, (int)Math.Ceiling(AuditPage.TotalCount / (double)AuditPage.PageSize));
@@ -162,6 +169,7 @@ else
     private async Task LoadTabAsync()
     {
         var actor = await CurrentActorAsync();
+        CurrentUserId = long.TryParse(actor.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id) ? id : null;
 
         if (Tab == "audit" && (actor.IsInRole(RoleNames.Admin) || actor.IsInRole(RoleNames.Manager)))
         {
