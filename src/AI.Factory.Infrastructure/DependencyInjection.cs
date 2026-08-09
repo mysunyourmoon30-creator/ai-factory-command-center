@@ -54,6 +54,7 @@ public static class DependencyInjection
         services.AddScoped<IMaterialShortageService, MaterialShortageService>();
         services.AddScoped<IProcurementService, ProcurementService>();
         services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<IExecutiveService, ExecutiveService>();
         services.AddScoped<IReportExportService, ReportExportService>();
         services.AddSingleton<IOrderRiskCalculator, OrderRiskCalculator>();
 

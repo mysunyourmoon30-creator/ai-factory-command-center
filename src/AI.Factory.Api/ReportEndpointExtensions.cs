@@ -18,6 +18,12 @@ public static class ReportEndpointExtensions
         dashboard.MapGet("/critical-risks", async (IDashboardService service, CancellationToken ct) => Results.Ok(await service.GetCriticalRisksAsync(ct)));
         dashboard.MapGet("/alerts", async (IDashboardService service, CancellationToken ct) => Results.Ok(await service.ListActiveAlertsAsync(ct)));
 
+        // Bare RequireAuthorization, like every other read group: the overview aggregates figures
+        // each role can already read on /orders, /procurement, /material-shortages and
+        // /machine-monitoring, so gating it would add a twelfth named policy to protect nothing.
+        var executive = endpoints.MapGroup("/api/executive").RequireAuthorization();
+        executive.MapGet("/overview", async (IExecutiveService service, CancellationToken ct) => Results.Ok(await service.GetOverviewAsync(ct)));
+
         var reports = endpoints.MapGroup("/api/reports").RequireAuthorization();
         reports.MapGet("/production-risk", async (IProductionPlanService service, CancellationToken ct) => Results.Ok(await service.ListAsync(ct)));
         reports.MapGet("/material-shortage", async (IMaterialShortageService service, CancellationToken ct) => Results.Ok(await service.ListAsync(ct)));
