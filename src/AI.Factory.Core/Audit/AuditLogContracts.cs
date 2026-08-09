@@ -9,6 +9,8 @@ public sealed record AuditLogDto(
     long? EntityId,
     string Result,
     string RequestId,
+    string? IpAddress,
+    string? UserAgent,
     DateTime CreatedAt);
 
 public sealed record AuditLogPage(IReadOnlyCollection<AuditLogDto> Items, int Page, int PageSize, int TotalCount);

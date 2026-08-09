@@ -54,5 +54,7 @@ public sealed class AuditLogReportRow
     public long? EntityId { get; set; }
     public required string Result { get; set; }
     public required string RequestId { get; set; }
+    public string? IpAddress { get; set; }
+    public string? UserAgent { get; set; }
     public DateTime CreatedAt { get; set; }
 }

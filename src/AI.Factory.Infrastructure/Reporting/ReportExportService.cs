@@ -131,7 +131,7 @@ public sealed class ReportExportService(
     {
 
         return CsvSecurity.WriteCsv(
-            ["Username", "Action", "Entity", "Entity Id", "Result", "Request Id", "Created At"],
+            ["Username", "Action", "Entity", "Entity Id", "Result", "Request Id", "IP Address", "User Agent", "Created At"],
             rows.Select(x => new string?[]
             {
                 x.Username,
@@ -140,6 +140,8 @@ public sealed class ReportExportService(
                 x.EntityId?.ToString(),
                 x.Result,
                 x.RequestId,
+                x.IpAddress,
+                x.UserAgent,
                 x.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)
             }));
     }

@@ -856,3 +856,63 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260809122627_AddAuditLogClientContext'
+)
+BEGIN
+    ALTER TABLE [AuditLogs] ADD [IpAddress] nvarchar(45) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260809122627_AddAuditLogClientContext'
+)
+BEGIN
+    ALTER TABLE [AuditLogs] ADD [UserAgent] nvarchar(512) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260809122627_AddAuditLogClientContext'
+)
+BEGIN
+    DROP VIEW vw_AuditLogReport
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260809122627_AddAuditLogClientContext'
+)
+BEGIN
+    EXEC(N'
+    CREATE VIEW vw_AuditLogReport AS
+    SELECT
+        a.Id,
+        a.UserId,
+        a.Username,
+        a.Action,
+        a.EntityName,
+        a.EntityId,
+        a.Result,
+        a.RequestId,
+        a.IpAddress,
+        a.UserAgent,
+        a.CreatedAt
+    FROM AuditLogs a
+    ')
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260809122627_AddAuditLogClientContext'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260809122627_AddAuditLogClientContext', N'10.0.10');
+END;
+
+COMMIT;
+GO
+

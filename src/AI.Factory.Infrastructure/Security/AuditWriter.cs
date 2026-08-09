@@ -31,11 +31,21 @@ public sealed class AuditWriter(
             EntityId = entityId,
             Result = result,
             RequestId = context?.TraceIdentifier ?? Guid.NewGuid().ToString("N"),
+            IpAddress = context?.Connection.RemoteIpAddress?.ToString(),
+            // Truncated rather than dropped if a client sends something absurd: a header long
+            // enough to overflow the column must not be able to fail an audit write, because the
+            // write is the thing being relied on.
+            UserAgent = Truncate(context?.Request.Headers.UserAgent.ToString(), 512),
             CreatedAt = timeProvider.GetUtcNow().UtcDateTime
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    private static string? Truncate(string? value, int maxLength) =>
+        string.IsNullOrWhiteSpace(value) ? null
+        : value.Length <= maxLength ? value
+        : value[..maxLength];
 
     private static long? ParseUserId(System.Security.Claims.ClaimsPrincipal? principal)
     {

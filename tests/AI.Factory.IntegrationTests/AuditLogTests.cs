@@ -71,7 +71,7 @@ public sealed class AuditLogTests : IClassFixture<AiFactoryWebApplicationFactory
             var bytes = await response.Content.ReadAsByteArrayAsync();
             Assert.Equal(Utf8Bom, bytes[..Utf8Bom.Length]);
             var text = Encoding.UTF8.GetString(bytes, Utf8Bom.Length, bytes.Length - Utf8Bom.Length);
-            Assert.StartsWith("Username,Action,Entity,Entity Id,Result,Request Id,Created At\r\n", text);
+            Assert.StartsWith("Username,Action,Entity,Entity Id,Result,Request Id,IP Address,User Agent,Created At\r\n", text);
         }
     }
 

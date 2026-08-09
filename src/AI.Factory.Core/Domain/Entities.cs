@@ -174,6 +174,19 @@ public sealed class AuditLog
     public long? EntityId { get; set; }
     public required string Result { get; set; }
     public required string RequestId { get; set; }
+
+    /// <summary>
+    /// Caller's remote address, and the user agent it presented. Both nullable on purpose: an
+    /// audit row written outside a request - a seeder, a background path - genuinely has neither,
+    /// and inventing a value there would be worse than recording nothing.
+    /// <para>
+    /// These are personal data. Fine for a demo with four seeded accounts; a real deployment would
+    /// need a retention policy for this table, which is append-only and unbounded.
+    /// </para>
+    /// </summary>
+    public string? IpAddress { get; set; }
+    public string? UserAgent { get; set; }
+
     public DateTime CreatedAt { get; set; }
 }
 

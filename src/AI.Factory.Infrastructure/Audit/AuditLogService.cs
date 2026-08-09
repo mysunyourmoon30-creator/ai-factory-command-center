@@ -45,5 +45,5 @@ public sealed class AuditLogService(AppDbContext dbContext) : IAuditLogService
     }
 
     private static AuditLogDto Map(AuditLog x) =>
-        new(x.Id, x.UserId, x.Username, x.Action, x.EntityName, x.EntityId, x.Result, x.RequestId, x.CreatedAt);
+        new(x.Id, x.UserId, x.Username, x.Action, x.EntityName, x.EntityId, x.Result, x.RequestId, x.IpAddress, x.UserAgent, x.CreatedAt);
 }

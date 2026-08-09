@@ -55,7 +55,7 @@
                         @* Request Id was already in the DTO and already in the CSV export; only the
                            screen dropped it, which is the one field that ties several rows to a
                            single request. *@
-                        <thead><tr><th scope="col">Created</th><th scope="col">Username</th><th scope="col">Action</th><th scope="col">Entity</th><th scope="col">Result</th><th scope="col">Request Id</th></tr></thead>
+                        <thead><tr><th scope="col">Created</th><th scope="col">Username</th><th scope="col">Action</th><th scope="col">Entity</th><th scope="col">Result</th><th scope="col">IP</th><th scope="col">Request Id</th></tr></thead>
                         <tbody>@foreach (var log in AuditPage.Items) {
                             <tr>
                                 <td>@log.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)</td>
@@ -63,6 +63,10 @@
                                 <td>@log.Action</td>
                                 <td>@log.EntityName@(log.EntityId is not null ? $" #{log.EntityId}" : "")</td>
                                 <td>@log.Result</td>
+                                @* The user agent is a paragraph, not a column - it hangs off the
+                                   IP as a tooltip so the row stays scannable and the full value is
+                                   still one hover away. Both are in the CSV export in full. *@
+                                <td class="font-monospace" style="font-size: var(--af-text-xs);" title="@(log.UserAgent ?? "No user agent recorded")">@(log.IpAddress ?? "—")</td>
                                 <td class="font-monospace text-break" style="font-size: var(--af-text-xs);">@log.RequestId</td>
                             </tr>
                         }</tbody>

@@ -241,6 +241,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
         entity.Property(x => x.EntityName).HasMaxLength(150).IsRequired();
         entity.Property(x => x.Result).HasMaxLength(500).IsRequired();
         entity.Property(x => x.RequestId).HasMaxLength(150).IsRequired();
+        // 45 covers an IPv4-mapped IPv6 address, the longest form a RemoteIpAddress can take.
+        entity.Property(x => x.IpAddress).HasMaxLength(45);
+        entity.Property(x => x.UserAgent).HasMaxLength(512);
         entity.Property(x => x.CreatedAt).HasPrecision(0);
         entity.HasIndex(x => new { x.Username, x.EntityName, x.CreatedAt });
         // AuditLogs is append-only and grows without bound, so its read paths are the ones that
