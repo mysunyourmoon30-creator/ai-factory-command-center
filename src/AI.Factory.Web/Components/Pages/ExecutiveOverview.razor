@@ -28,14 +28,17 @@ else
     @* Bar plus legend only. A row of KPI cards under it restated the same three numbers a second
        time, which is the duplication this screen exists to avoid - and the Dashboard already owns
        the card idiom. The proportion is what this page adds. *@
-    @Bar("Customer orders by delivery risk", RiskSegments, Overview.DeliveryRisk.Total)
+    @Bar("Customer orders by delivery risk", RiskSegments, Overview.DeliveryRisk.Total, "No customer order carries a delivery risk yet.")
     <p class="mt-2 mb-0"><a href="orders">Open Customer Orders to work the list</a></p>
 
     <h2 class="h4 mt-4">Order Pipeline</h2>
-    <p class="text-muted mb-2" style="font-size: var(--af-text-sm);">
-        Where the @Overview.Pipeline.Total customer orders currently sit in their lifecycle.
-    </p>
-    @Bar("Customer orders by lifecycle status", PipelineSegments, Overview.Pipeline.Total)
+    @if (Overview.Pipeline.Total > 0)
+    {
+        <p class="text-muted mb-2" style="font-size: var(--af-text-sm);">
+            Where the @Overview.Pipeline.Total customer orders currently sit in their lifecycle.
+        </p>
+    }
+    @Bar("Customer orders by lifecycle status", PipelineSegments, Overview.Pipeline.Total, "No customer order exists yet.")
 
     <h2 class="h4 mt-4">Procurement</h2>
     <p class="text-muted mb-2" style="font-size: var(--af-text-sm);">
@@ -101,27 +104,34 @@ else
     }
 
     <h2 class="h4 mt-4">Machines</h2>
-    <div class="table-responsive">
-        <table class="table table-sm align-middle">
-            <thead><tr><th scope="col">Machine</th><th scope="col">Running</th><th scope="col">Alert</th><th scope="col">Last Updated</th></tr></thead>
-            <tbody>
-                @foreach (var machine in Overview.Machines)
-                {
-                    <tr>
-                        @* Running/Stopped stays uncoloured here on purpose - StatusBadge documents
-                           that it deliberately does not own that mapping, and Machine Monitoring's
-                           own RunningClass explains why a stopped machine is amber rather than red.
-                           Duplicating either decision on this screen would create a third opinion. *@
-                        <td>@machine.MachineCode - @machine.MachineName</td>
-                        <td>@machine.RunningStatus</td>
-                        <td><StatusBadge Risk="machine.AlertStatus" /></td>
-                        <td>@machine.LastUpdated.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-    <p class="mb-0"><a href="machine-monitoring">Open Machine Monitoring for live values</a></p>
+    @if (Overview.Machines.Count == 0)
+    {
+        <EmptyState Message="No machine is registered." Hint="The three locked machines arrive with the master-data seed." />
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead><tr><th scope="col">Machine</th><th scope="col">Running</th><th scope="col">Alert</th><th scope="col">Last Updated</th></tr></thead>
+                <tbody>
+                    @foreach (var machine in Overview.Machines)
+                    {
+                        <tr>
+                            @* Running/Stopped stays uncoloured here on purpose - StatusBadge documents
+                               that it deliberately does not own that mapping, and Machine Monitoring's
+                               own RunningClass explains why a stopped machine is amber rather than red.
+                               Duplicating either decision on this screen would create a third opinion. *@
+                            <td>@machine.MachineCode - @machine.MachineName</td>
+                            <td>@machine.RunningStatus</td>
+                            <td><StatusBadge Risk="machine.AlertStatus" /></td>
+                            <td>@machine.LastUpdated.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="mb-0"><a href="machine-monitoring">Open Machine Monitoring for live values</a></p>
+    }
 }
 
 @code {
@@ -131,27 +141,39 @@ else
     /// A stacked proportion bar. Bootstrap 5.3's progress-stacked, so there is no bespoke CSS and
     /// it follows the light/dark theme on its own.
     /// </summary>
-    private RenderFragment Bar(string label, IReadOnlyList<Segment> segments, int total) => @<text>
-        <div class="progress-stacked" aria-label="@label">
-            @foreach (var segment in segments.Where(x => x.Count > 0))
-            {
-                <div class="progress" role="progressbar" aria-label="@segment.Label"
-                     aria-valuenow="@segment.Count" aria-valuemin="0" aria-valuemax="@total"
-                     style="width: @Percent(segment.Count, total)%">
-                    <div class="progress-bar @segment.ColourClass"></div>
-                </div>
-            }
-        </div>
-        <ul class="list-unstyled d-flex flex-wrap mb-0 mt-2" style="gap: var(--af-space-4); font-size: var(--af-text-sm);">
-            @foreach (var segment in segments)
-            {
-                <li class="d-flex align-items-center" style="gap: var(--af-space-2);">
-                    <span class="d-inline-block rounded-1 @segment.ColourClass" style="width: 0.7rem; height: 0.7rem;" aria-hidden="true"></span>
-                    <span class="text-muted">@segment.Label</span>
-                    <strong>@segment.Count</strong>
-                </li>
-            }
-        </ul>
+    private RenderFragment Bar(string label, IReadOnlyList<Segment> segments, int total, string emptyMessage) => @<text>
+        @* With nothing to divide up, the bar renders as a bare grey track above a legend of zeros,
+           which reads as a broken chart rather than as "there is no data yet". Reachable for real:
+           the app runs after migrations and before any --seed-* flag. *@
+        @if (total <= 0)
+        {
+            <EmptyState Message="@emptyMessage" Hint="Figures appear once customer orders exist." />
+        }
+        else
+        {
+            @* role="group" is what makes the aria-label above count: ARIA prohibits naming an
+               element whose role is generic, so on a bare <div> the label is dropped. *@
+            <div class="progress-stacked" role="group" aria-label="@label">
+                @foreach (var segment in segments.Where(x => x.Count > 0))
+                {
+                    <div class="progress" role="progressbar" aria-label="@segment.Label"
+                         aria-valuenow="@segment.Count" aria-valuemin="0" aria-valuemax="@total"
+                         style="width: @Percent(segment.Count, total)%">
+                        <div class="progress-bar @segment.ColourClass"></div>
+                    </div>
+                }
+            </div>
+            <ul class="list-unstyled d-flex flex-wrap mb-0 mt-2" style="gap: var(--af-space-4); font-size: var(--af-text-sm);">
+                @foreach (var segment in segments)
+                {
+                    <li class="d-flex align-items-center" style="gap: var(--af-space-2);">
+                        <span class="d-inline-block rounded-1 @segment.ColourClass" style="width: 0.7rem; height: 0.7rem;" aria-hidden="true"></span>
+                        <span class="text-muted">@segment.Label</span>
+                        <strong>@segment.Count</strong>
+                    </li>
+                }
+            </ul>
+        }
     </text>;
 
     /// <summary>
