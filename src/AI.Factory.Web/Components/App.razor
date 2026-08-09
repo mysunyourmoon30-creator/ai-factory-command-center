@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <ResourcePreloader />
+    @* Discovered inside app.css otherwise, which is one round trip too late and shows a frame of
+       the fallback font. Only the Latin subset - latin-ext is fetched on demand by unicode-range. *@
+    <link rel="preload" as="font" type="font/woff2" href="@Assets["fonts/inter-latin.woff2"]" crossorigin />
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["AI.Factory.Web.styles.css"]" />
