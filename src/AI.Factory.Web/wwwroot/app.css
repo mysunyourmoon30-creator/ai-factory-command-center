@@ -224,6 +224,19 @@ h1:focus {
     word-break: break-all;
 }
 
+/*
+ * Row hover. Deliberately a translucent overlay rather than Bootstrap's .table-hover, which
+ * swaps the cell's background outright: on these screens the row colour carries meaning - a
+ * shortage row is red, the selected row is tinted - and hovering must not erase it.
+ */
+.table > tbody > tr:hover > * {
+    box-shadow: inset 0 0 0 9999px rgb(79 70 229 / 4%);
+}
+
+[data-bs-theme="dark"] .table > tbody > tr:hover > * {
+    box-shadow: inset 0 0 0 9999px rgb(165 180 252 / 6%);
+}
+
 /* Wide tables scroll inside their own container instead of pushing the page sideways. */
 .table-responsive {
     border: 1px solid var(--af-border);
@@ -293,13 +306,65 @@ h1:focus {
     box-shadow: var(--af-shadow-sm);
 }
 
-/* ---------- Badges ---------- */
+/* ---------- Badges ----------
+ *
+ * Bootstrap's .text-bg-* fills a badge with a saturated block and white text. On a screen where
+ * most rows carry a status, that turns a table into a row of traffic lights and nothing reads as
+ * more urgent than anything else - the Normal green shouted exactly as loudly as the Critical red.
+ *
+ * Soft tint with a darker label of the same hue instead: quieter at rest, and because the hue is
+ * unchanged the meaning is identical. Both of Bootstrap's declarations are !important, so the
+ * override needs a second class to outrank them.
+ */
 
 .badge {
     font-size: var(--af-text-xs);
     font-weight: 600;
     letter-spacing: 0.01em;
     padding: 0.35em 0.6em;
+    border-radius: var(--af-radius-sm);
+}
+
+.badge.text-bg-success {
+    color: #0f5132 !important;
+    background-color: #e7f6ee !important;
+}
+
+.badge.text-bg-danger {
+    color: #a51d29 !important;
+    background-color: #fdeaec !important;
+}
+
+.badge.text-bg-warning {
+    color: #7a5600 !important;
+    background-color: #fff4d6 !important;
+}
+
+.badge.text-bg-secondary {
+    color: #4b5563 !important;
+    background-color: #eef0f3 !important;
+}
+
+/* Dark theme flips it: the tint carries the hue at low opacity and the label is the light end of
+   the same colour, so contrast survives the darker surface. */
+[data-bs-theme="dark"] .badge.text-bg-success {
+    color: #79d3a6 !important;
+    background-color: rgb(25 135 84 / 22%) !important;
+}
+
+[data-bs-theme="dark"] .badge.text-bg-danger {
+    color: #f4a2a9 !important;
+    background-color: rgb(220 53 69 / 24%) !important;
+}
+
+[data-bs-theme="dark"] .badge.text-bg-warning {
+    color: #f2cd70 !important;
+    background-color: rgb(255 193 7 / 20%) !important;
+}
+
+[data-bs-theme="dark"] .badge.text-bg-secondary {
+    color: #c2cad6 !important;
+    background-color: rgb(148 163 184 / 18%) !important;
 }
 
 /* ---------- Forms ---------- */
