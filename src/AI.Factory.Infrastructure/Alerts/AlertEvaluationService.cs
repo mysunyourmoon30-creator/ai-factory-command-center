@@ -31,6 +31,18 @@ public sealed class AlertEvaluationService(
                 a.AlertType == issue.Type && a.EntityName == issue.EntityName && a.EntityId == issue.EntityId);
             if (existing is not null)
             {
+                // Severity has to follow the condition, not only the wording. A machine climbing
+                // from 86 to 96 degrees keeps the same dedup key (MachineTemperature/Machine/id), so
+                // the alert was updated in place with the new message and the *old* severity. That
+                // left a row whose badge read Warning while its own text read "(Critical)", and the
+                // Dashboard sorts Critical first - so a genuinely critical machine sorted below the
+                // real Critical alerts, on the screen whose job is to surface the worst thing
+                // happening. The reverse direction was equally stuck, over-reporting a cleared
+                // condition as Critical.
+                if (existing.Severity != issue.Severity)
+                {
+                    existing.Severity = issue.Severity;
+                }
                 if (!string.Equals(existing.Message, issue.Message, StringComparison.Ordinal))
                 {
                     existing.Message = issue.Message;
