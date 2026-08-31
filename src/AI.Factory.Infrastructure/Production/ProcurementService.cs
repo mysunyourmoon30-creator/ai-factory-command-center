@@ -129,7 +129,20 @@ public sealed class ProcurementService(AppDbContext dbContext, IAuditWriter audi
         catch (DbUpdateException)
         {
             if (transaction is not null) await transaction.RollbackAsync(cancellationToken);
-            throw new BusinessConflictException("An incoming purchase order already exists for this purchase request.");
+
+            // Two different unique indexes reach this catch, and reporting the first for both was
+            // wrong. IX_IncomingPurchaseOrders_PurchaseRequestId means a genuine duplicate - though
+            // the pre-check above already handles the non-racing case. IX_..._PurchaseOrderNumber
+            // means two concurrent creates for *different* requests both numbered themselves off the
+            // same COUNT(*): NextPurchaseOrderNumberAsync runs before this transaction opens, and
+            // this transaction is ReadCommitted, so nothing serialises them. The caller was then
+            // told an order already existed for their purchase request when none did, sending them
+            // to look at the wrong thing instead of simply retrying.
+            var duplicateForThisRequest = await dbContext.IncomingPurchaseOrders.AsNoTracking()
+                .AnyAsync(x => x.PurchaseRequestId == command.PurchaseRequestId, cancellationToken);
+            throw new BusinessConflictException(duplicateForThisRequest
+                ? "An incoming purchase order already exists for this purchase request."
+                : "Another incoming purchase order was created at the same moment and took this order number. Please try again.");
         }
 
         await auditWriter.WriteAsync("Create Incoming Purchase Order", nameof(IncomingPurchaseOrder), order.Id, "Success", cancellationToken: cancellationToken);

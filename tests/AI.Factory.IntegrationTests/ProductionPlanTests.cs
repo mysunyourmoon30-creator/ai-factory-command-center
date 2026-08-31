@@ -165,6 +165,40 @@ public sealed class ProductionPlanTests : IClassFixture<AiFactoryWebApplicationF
         return (await response.Content.ReadFromJsonAsync<ProductionPlanDto>())!;
     }
 
+    /// <summary>
+    /// Quantity is only validated as "greater than zero" and its column is decimal(18,3), so a value
+    /// up to ~1e15 is accepted and stored. RequiredBatch is CEILING(Quantity / BatchSize) cast with
+    /// `checked((int)...)`, so with FM-DEMO-001's batch size of 500 any quantity above about 1.07e12
+    /// overflows Int32. OverflowException is mapped by neither ExecuteWriteAsync nor
+    /// UserFacingError.IsExpected, so the order saved fine and then creating its plan returned 500 -
+    /// and on the Blazor path, which runs no endpoint handler at all, tore the circuit down.
+    ///
+    /// A quantity that cannot be produced deserves a clear rejection, not a crash. The batch count
+    /// exceeding Int32 is a validation outcome, so it is reported as one.
+    /// </summary>
+    [Fact]
+    public async Task Quantity_too_large_to_batch_is_rejected_rather_than_crashing()
+    {
+        using var client = CreateClient();
+        await LoginAsync(client, "planner.demo");
+
+        // Accepted today: the only quantity rule is "> 0", and this fits decimal(18,3).
+        var order = await CreatePlannedOrderAsync(client, 2_000_000_000_000m);
+        var machine = (await client.GetFromJsonAsync<MachineOptionDto[]>("/api/production-plans/machines"))!.First();
+        var planNumber = Unique("PP-HUGE-");
+
+        using var response = await SendJsonAsync(client, HttpMethod.Post, "/api/production-plans",
+            new CreateProductionPlanCommand(planNumber, order.Id, machine.Id, order.DeliveryDate.AddDays(-2)));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        // And nothing half-written behind it.
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.False(await db.ProductionPlans.AnyAsync(x => x.PlanNumber == planNumber));
+        Assert.False(await db.MaterialRequirements.AnyAsync(x => x.ProductionPlan.PlanNumber == planNumber));
+    }
+
     private async Task<CustomerOrderDto> CreatePlannedOrderAsync(HttpClient client, decimal quantity)
     {
         var draft = await CreateDraftOrderAsync(client, quantity);
