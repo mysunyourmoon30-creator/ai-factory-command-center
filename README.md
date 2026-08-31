@@ -203,7 +203,7 @@ Demo users (password `Demo@12345` for all — demo-only, never reuse):
 .\.dotnet\dotnet.exe test AI.Factory.CommandCenter.sln
 ```
 
-198 automated tests (89 unit, 109 integration) covering all 15 locked Required Tests — see
+225 automated tests (97 unit, 128 integration) covering all 15 locked Required Tests — see
 [`docs/00_Project_Status.md`](docs/00_Project_Status.md)'s Day 12 acceptance evidence for the
 full Test 1-15 traceability matrix. `AI.Factory.UnitTests` includes invariant guards
 (`FoundationContractTests`) that fail the build if the table count or a locked constraint drifts.

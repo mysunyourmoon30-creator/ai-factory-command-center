@@ -39,7 +39,7 @@ procurement, and risk-monitoring system. One flow: customer orders drive product
 production plans drive material requirements, shortages drive purchase requests and incoming POs,
 and a Dashboard / AI Copilot / Machine Monitoring layer surfaces risk in real time. It's a .NET 10
 modular monolith — Blazor Server UI and a JSON API sharing the exact same application services, one
-SQL Server database, 14 tables, 11 modules, 4 roles. 216 automated tests cover all 15 required
+SQL Server database, 14 tables, 11 modules, 4 roles. 225 automated tests cover all 15 required
 business scenarios."
 
 ## Beat 1 — Login & roles (30s)
@@ -204,7 +204,7 @@ will not see them, and pointing at them on camera will point at nothing.
 
 "That's the full flow — customer order to production plan to material shortage to purchase
 request to incoming PO, with a Dashboard, AI Copilot, and Machine Monitoring layer watching risk
-throughout. Everything you saw is backed by 216 automated tests, and the scope was deliberately
+throughout. Everything you saw is backed by 225 automated tests, and the scope was deliberately
 locked from day one: 14 tables, 11 modules, 4 roles, 3 machines, 4 read-only AI tools. One screen
 was added after that lock — the Executive Overview — and rather than quietly folding it into the
 numbers, it's written up as a recorded departure in the scope document, with what it does and does
