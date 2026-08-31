@@ -31,10 +31,11 @@ public sealed class AuditWriter(
             EntityId = entityId,
             Result = result,
             RequestId = context?.TraceIdentifier ?? Guid.NewGuid().ToString("N"),
-            IpAddress = context?.Connection.RemoteIpAddress?.ToString(),
-            // Truncated rather than dropped if a client sends something absurd: a header long
-            // enough to overflow the column must not be able to fail an audit write, because the
-            // write is the thing being relied on.
+            // Both columns are truncated rather than dropped: a value long enough to overflow one
+            // must not be able to fail an audit write, because the write is the thing being relied
+            // on. IpAddress was previously written straight through against an nvarchar(45) column,
+            // which an IPv6 address carrying a long zone suffix can exceed.
+            IpAddress = Truncate(context?.Connection.RemoteIpAddress?.ToString(), 45),
             UserAgent = Truncate(context?.Request.Headers.UserAgent.ToString(), 512),
             CreatedAt = timeProvider.GetUtcNow().UtcDateTime
         });

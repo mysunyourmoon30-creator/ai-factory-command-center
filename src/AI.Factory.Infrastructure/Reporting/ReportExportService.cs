@@ -87,8 +87,11 @@ public sealed class ReportExportService(
     {
         // Same filters the Audit Log screen applies, so an export matches what the operator is
         // looking at, plus a hard row cap - this view sits on the one table that grows forever.
+        // Id breaks ties for the same reason AuditLogService.ListAsync does - see the comment there.
+        // It matters more under a row cap than under paging: without it, which rows survive Take()
+        // among a tied group is undefined, so an export can carry one row of a pair and drop the other.
         var rows = ApplyAuditLogFilter(dbContext.AuditLogReport.AsNoTracking(), query)
-            .OrderByDescending(x => x.CreatedAt)
+            .OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
             .Take(IReportExportService.MaxAuditLogExportRows)
             .ToArrayAsync(cancellationToken);
 

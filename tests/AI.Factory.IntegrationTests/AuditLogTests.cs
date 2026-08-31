@@ -2,7 +2,9 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using AI.Factory.Core.Audit;
+using AI.Factory.Core.Security;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AI.Factory.IntegrationTests;
 
@@ -31,6 +33,61 @@ public sealed class AuditLogTests : IClassFixture<AiFactoryWebApplicationFactory
         var firstPage = await client.GetFromJsonAsync<AuditLogPage>("/api/audit-logs?page=1&pageSize=1");
         Assert.Single(firstPage!.Items);
         Assert.Equal(1, firstPage.Page);
+    }
+
+    /// <summary>
+    /// Paging must be a partition of the table: every row exactly once, nothing repeated, nothing
+    /// lost. It was not. ListAsync sorted on CreatedAt alone, and CreatedAt is datetime2(0), so rows
+    /// written in the same second tie; under the fixed clock used here every row ties. With no unique
+    /// final sort key the order among tied rows is undefined and OFFSET/FETCH then slices it.
+    /// Reproduced on LocalDB before the fix at page size 10: Id 17 came back on both pages and Id 18
+    /// on neither.
+    ///
+    /// Rows are minted through IAuditWriter rather than by logging in repeatedly. Logins would work -
+    /// each writes one row - but they spend the shared login rate-limit budget and the later tests in
+    /// this class then get a 503 instead of a redirect. Found the hard way.
+    ///
+    /// The InMemory provider has no optimiser, so it cannot reproduce the plan-dependent ordering
+    /// that makes this dangerous in production. It catches the defect a different way: LINQ-to-Objects
+    /// sorts stably, so without the tiebreaker the tied rows come back oldest-first and the strict
+    /// descending-Id assertion below fails - which is also the plainest statement of the bug, since a
+    /// log that advertises newest-first was returning oldest-first whenever the clock was fixed.
+    /// </summary>
+    [Fact]
+    public async Task Paging_visits_every_entry_exactly_once_even_though_all_timestamps_tie()
+    {
+        const string ProbeAction = "Paging Probe";
+        const int PageSize = 3;
+        const int RowCount = 10;
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var writer = scope.ServiceProvider.GetRequiredService<IAuditWriter>();
+            for (var i = 0; i < RowCount; i++)
+            {
+                // All ten share the fixed clock's instant, so this is one guaranteed tie group
+                // several pages deep.
+                await writer.WriteAsync(ProbeAction, "Endpoint", null, $"row {i}", username: "paging.probe");
+            }
+        }
+
+        using var client = CreateClient();
+        await LoginAsync(client, "admin.demo");
+
+        var seen = new List<long>();
+        var pageCount = (int)Math.Ceiling(RowCount / (double)PageSize);
+        for (var page = 1; page <= pageCount; page++)
+        {
+            var slice = await client.GetFromJsonAsync<AuditLogPage>(
+                $"/api/audit-logs?action={Uri.EscapeDataString(ProbeAction)}&page={page}&pageSize={PageSize}");
+            Assert.Equal(RowCount, slice!.TotalCount);
+            seen.AddRange(slice.Items.Select(x => x.Id));
+        }
+
+        var duplicated = seen.GroupBy(x => x).Where(g => g.Count() > 1).Select(g => g.Key).ToArray();
+        Assert.True(duplicated.Length == 0, $"Returned on more than one page: {string.Join(", ", duplicated)}");
+        Assert.Equal(RowCount, seen.Distinct().Count());
+        Assert.Equal(seen.OrderByDescending(x => x).ToArray(), seen);
     }
 
     [Theory]
