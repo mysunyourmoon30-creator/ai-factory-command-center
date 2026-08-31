@@ -15,7 +15,7 @@ public sealed class AuthenticationService(
         var user = await userManager.FindByNameAsync(username);
         if (user is null || !user.IsActive)
         {
-            await auditWriter.WriteAsync("Login Failure", "User", user?.Id, "Invalid credentials", username, user?.Id, cancellationToken);
+            await auditWriter.WriteAsync("Login Failure", "User", user?.Id, user is null ? "Unknown username" : "Account is inactive", username, user?.Id, cancellationToken);
             return false;
         }
 
@@ -24,13 +24,34 @@ public sealed class AuthenticationService(
             result.Succeeded ? "Login Success" : "Login Failure",
             "User",
             user.Id,
-            result.Succeeded ? "Success" : "Invalid credentials",
+            DescribeOutcome(result),
             user.UserName,
             user.Id,
             cancellationToken);
 
         return result.Succeeded;
     }
+
+    /// <summary>
+    /// Every failed sign-in used to be recorded as "Invalid credentials", so the audit log could not
+    /// tell a typo from a lockout, a deactivated account, or an unknown username. On the module whose
+    /// whole purpose is traceability that loses the signal an investigation actually needs: after a
+    /// brute-force run the log showed a row of identical entries, with no indication that the account
+    /// had locked - nor that the attempt immediately after it presented the *correct* password and was
+    /// refused, which is the single most alarming event the log can hold.
+    ///
+    /// This changes only what the audit records. The HTTP response is deliberately identical in every
+    /// failure case, so no username-enumeration signal is added, and the audit log itself is readable
+    /// only by Admin and Manager.
+    /// </summary>
+    private static string DescribeOutcome(SignInResult result) => result switch
+    {
+        { Succeeded: true } => "Success",
+        { IsLockedOut: true } => "Locked out",
+        { IsNotAllowed: true } => "Sign-in not allowed",
+        { RequiresTwoFactor: true } => "Requires two-factor",
+        _ => "Invalid credentials"
+    };
 
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
     {
