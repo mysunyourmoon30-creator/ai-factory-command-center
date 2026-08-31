@@ -170,6 +170,71 @@ public sealed class MaterialAvailabilityRuleTests
         Assert.Equal(-50, evaluation.AvailableByDate);
     }
 
+    /// <summary>
+    /// The example-based tests above each pin one scenario. This pins the *properties* those examples
+    /// are instances of, across 500 randomly generated demand/supply sets - including the awkward
+    /// shapes nobody writes by hand: no demand at all, zero-quantity demand, supply and demand dated
+    /// in the past, a negative on-hand position, and repeated dates.
+    ///
+    /// The seed is fixed, so a failure here is reproducible rather than a heisenbug, and the failure
+    /// message carries the iteration that broke.
+    ///
+    /// Added during the bug audit of the shortage engine. It found nothing - which is the useful
+    /// result to record for the calculation the whole system is built around.
+    /// </summary>
+    [Fact]
+    public void Timeline_and_evaluation_hold_their_invariants_for_arbitrary_demand_and_supply()
+    {
+        var random = new Random(20260831);
+
+        for (var iteration = 0; iteration < 500; iteration++)
+        {
+            var onHandAvailable = (decimal)random.Next(-500, 5_000);
+            var demands = Enumerable.Range(0, random.Next(0, 6))
+                .Select(_ => new MaterialDemand(Today.AddDays(random.Next(-5, 15)), random.Next(0, 2_000)))
+                .ToArray();
+            var supplies = Enumerable.Range(0, random.Next(0, 6))
+                .Select(_ => new IncomingSupply(Today.AddDays(random.Next(-5, 15)), random.Next(0, 2_000)))
+                .ToArray();
+            var because = $"iteration {iteration}, onHand {onHandAvailable}, {demands.Length} demands, {supplies.Length} supplies";
+
+            var timeline = MaterialAvailabilityRules.BuildTimeline(onHandAvailable, demands, supplies, Today);
+            var evaluation = MaterialAvailabilityRules.Evaluate(onHandAvailable, timeline);
+
+            for (var i = 1; i < timeline.Count; i++)
+            {
+                Assert.True(timeline[i].RequiredDate > timeline[i - 1].RequiredDate, $"Timeline dates must strictly ascend - {because}");
+                Assert.True(timeline[i].CumulativeRequired >= timeline[i - 1].CumulativeRequired, $"Cumulative demand cannot fall - {because}");
+                Assert.True(timeline[i].CumulativeIncoming >= timeline[i - 1].CumulativeIncoming, $"Cumulative incoming cannot fall as the window widens - {because}");
+            }
+
+            foreach (var point in timeline)
+            {
+                Assert.Equal(onHandAvailable + point.CumulativeIncoming, point.AvailableByDate);
+            }
+
+            var expectedShortage = timeline.Count == 0
+                ? 0m
+                : timeline.Max(x => Math.Max(x.CumulativeRequired - x.AvailableByDate, 0m));
+            Assert.Equal(expectedShortage, evaluation.ShortageQuantity);
+            Assert.True(evaluation.ShortageQuantity >= 0, $"Shortage is never negative - {because}");
+            Assert.Equal(evaluation.ShortageQuantity > 0, evaluation.MaterialRequiredDate is not null);
+
+            if (evaluation.MaterialRequiredDate is { } shortfallDate)
+            {
+                // The first date that runs short cannot follow the date of the largest deficit: the
+                // largest deficit is itself positive, so a shortfall exists at or before it.
+                Assert.True(shortfallDate <= evaluation.EvaluationDate, $"First shortfall must not follow the evaluation date - {because}");
+            }
+
+            if (timeline.Count == 0)
+            {
+                Assert.Null(evaluation.EvaluationDate);
+                Assert.Equal(onHandAvailable, evaluation.AvailableByDate);
+            }
+        }
+    }
+
     [Theory]
     [InlineData(PurchaseRequestStatus.Draft, true)]
     [InlineData(PurchaseRequestStatus.PendingApproval, true)]
