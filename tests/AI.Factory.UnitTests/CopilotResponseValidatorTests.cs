@@ -75,4 +75,36 @@ public sealed class CopilotResponseValidatorTests
     [Fact]
     public void A_non_string_item_in_an_array_fails() =>
         Assert.False(CopilotResponseValidator.TryValidate("""{"summary": "x", "affectedOrders": [1, 2]}""", out _));
+
+    /// <summary>
+    /// affectedOrders was the one array whose *count* was capped while each item was accepted at any
+    /// length - it was passed int.MaxValue as its per-item limit - so twenty unbounded strings could
+    /// pass validation and reach the page. Every sibling cap already had a test; this one had neither
+    /// the cap nor the test, which is what gave the omission away.
+    /// </summary>
+    [Fact]
+    public void Oversized_affected_order_fails()
+    {
+        var oversized = new string('a', CopilotResponseValidator.MaxAffectedOrderLength + 1);
+        Assert.False(CopilotResponseValidator.TryValidate($$"""{"summary": "x", "affectedOrders": ["{{oversized}}"]}""", out _));
+    }
+
+    [Fact]
+    public void An_affected_order_at_the_cap_still_passes()
+    {
+        var atCap = new string('a', CopilotResponseValidator.MaxAffectedOrderLength);
+        Assert.True(CopilotResponseValidator.TryValidate($$"""{"summary": "x", "affectedOrders": ["{{atCap}}"]}""", out var response));
+        Assert.Equal(atCap, Assert.Single(response!.AffectedOrders));
+    }
+
+    /// <summary>
+    /// OllamaClient reads the response body whole with no size limit, so refusing an absurd payload
+    /// before JsonDocument.Parse allocates for it is this validator's job too.
+    /// </summary>
+    [Fact]
+    public void A_payload_over_the_raw_cap_fails_without_being_parsed()
+    {
+        var padding = new string('a', CopilotResponseValidator.MaxRawResponseLength);
+        Assert.False(CopilotResponseValidator.TryValidate($$"""{"summary": "x", "_pad": "{{padding}}"}""", out _));
+    }
 }

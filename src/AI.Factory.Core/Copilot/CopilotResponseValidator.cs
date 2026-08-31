@@ -7,18 +7,39 @@ namespace AI.Factory.Core.Copilot;
 /// Validates the model's structured-output JSON against the locked shape (§10.4). Any failure —
 /// malformed JSON, missing required field, invalid enum, an item over its length/count cap —
 /// fails closed: the caller falls back rather than showing unvalidated model output.
+///
+/// <para>
+/// This is the only thing standing between model output and the screen: OllamaClient reads the
+/// response body whole with no size limit, so every bound the rendered answer has, it has here.
+/// </para>
 /// </summary>
 public static class CopilotResponseValidator
 {
     public const int MaxSummaryLength = 1000;
     public const int MaxActionLength = 300;
+
+    /// <summary>
+    /// Per-item cap on affectedOrders, which previously had none: the array's *count* was capped
+    /// but each entry was accepted at any length, so twenty unbounded strings could pass validation
+    /// and reach the page. An order reference is an OrderNumber, itself limited to 30 characters, so
+    /// this is already generous.
+    /// </summary>
+    public const int MaxAffectedOrderLength = 100;
+
     public const int MaxAffectedOrders = 20;
     public const int MaxRecommendedActions = 10;
+
+    /// <summary>
+    /// Refuses an absurd payload before JsonDocument.Parse allocates for it. The largest response
+    /// this validator can accept is roughly 6.5 KB (summary + both arrays at their caps), so this
+    /// leaves generous headroom while keeping a runaway model from being parsed into memory.
+    /// </summary>
+    public const int MaxRawResponseLength = 16_000;
 
     public static bool TryValidate(string? json, out CopilotResponseDto? response)
     {
         response = null;
-        if (string.IsNullOrWhiteSpace(json)) return false;
+        if (string.IsNullOrWhiteSpace(json) || json.Length > MaxRawResponseLength) return false;
 
         JsonDocument document;
         try { document = JsonDocument.Parse(json); }
@@ -41,7 +62,7 @@ public static class CopilotResponseValidator
                 riskLevel = parsed;
             }
 
-            if (!TryReadStringArray(root, "affectedOrders", MaxAffectedOrders, int.MaxValue, out var affectedOrders)) return false;
+            if (!TryReadStringArray(root, "affectedOrders", MaxAffectedOrders, MaxAffectedOrderLength, out var affectedOrders)) return false;
             if (!TryReadStringArray(root, "recommendedActions", MaxRecommendedActions, MaxActionLength, out var recommendedActions)) return false;
 
             response = new CopilotResponseDto(summary.Trim(), riskLevel, affectedOrders, recommendedActions, IsFallback: false);
