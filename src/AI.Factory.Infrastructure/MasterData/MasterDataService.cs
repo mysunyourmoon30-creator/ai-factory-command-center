@@ -1,5 +1,6 @@
 using AI.Factory.Core.Domain;
 using AI.Factory.Core.MasterData;
+using AI.Factory.Core.Production;
 using AI.Factory.Core.Security;
 using AI.Factory.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +27,7 @@ public sealed class MasterDataService(AppDbContext dbContext, IAuditWriter audit
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var entity = new RawMaterial { Code = command.Code.Trim(), Name = command.Name.Trim(), Unit = command.Unit.Trim(), CurrentStock = command.CurrentStock, ReservedStock = command.ReservedStock, LeadTimeDays = command.LeadTimeDays, IsActive = command.IsActive, CreatedAt = now, UpdatedAt = now };
         dbContext.RawMaterials.Add(entity);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await SaveAsync("Material code already exists.", "Raw material changed; reload before saving.", cancellationToken);
         await auditWriter.WriteAsync("Create Raw Material", "RawMaterial", entity.Id, "Success", cancellationToken: cancellationToken);
         return MapRaw(entity);
     }
@@ -40,7 +41,7 @@ public sealed class MasterDataService(AppDbContext dbContext, IAuditWriter audit
         if (await dbContext.RawMaterials.AnyAsync(x => x.Id != id && x.Code == command.Code.Trim(), cancellationToken)) throw new DomainValidationException("Material code already exists.");
         dbContext.Entry(entity).Property(x => x.RowVersion).OriginalValue = command.RowVersion;
         entity.Code = command.Code.Trim(); entity.Name = command.Name.Trim(); entity.Unit = command.Unit.Trim(); entity.CurrentStock = command.CurrentStock; entity.ReservedStock = command.ReservedStock; entity.LeadTimeDays = command.LeadTimeDays; entity.IsActive = command.IsActive; entity.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime;
-        try { await dbContext.SaveChangesAsync(cancellationToken); } catch (DbUpdateConcurrencyException) { throw new ConcurrencyConflictException("Raw material changed; reload before saving."); }
+        await SaveAsync("Material code already exists.", "Raw material changed; reload before saving.", cancellationToken);
         await auditWriter.WriteAsync("Update Raw Material", "RawMaterial", entity.Id, "Success", cancellationToken: cancellationToken);
         return MapRaw(entity);
     }
@@ -78,9 +79,27 @@ public sealed class MasterDataService(AppDbContext dbContext, IAuditWriter audit
             entity.Materials.Clear(); entity.Code = command.Code.Trim(); entity.Name = command.Name.Trim(); entity.BatchSize = command.BatchSize; entity.IsActive = command.IsActive; entity.UpdatedAt = now;
         }
         entity.Materials = command.Materials.Select(x => new FormulationMaterial { RawMaterialId = x.RawMaterialId, WeightPerBatch = x.WeightPerBatch }).ToList();
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await SaveAsync("Formulation code already exists.", "Formulation changed; reload before saving.", cancellationToken);
         await auditWriter.WriteAsync(id is null ? "Create Formulation" : "Update Formulation", "Formulation", entity.Id, "Success", cancellationToken: cancellationToken);
         return (await GetFormulationAsync(entity.Id, cancellationToken))!;
+    }
+
+    /// <summary>
+    /// Every duplicate-code check in this service is read-then-write against a uniquely indexed
+    /// Code column (IX_RawMaterials_Code, IX_Formulations_Code), so two callers submitting the same
+    /// code concurrently both pass the pre-check and the index settles the race. Untranslated, the
+    /// loser got a raw store exception - a 500 on the API and a dead circuit in the UI - instead of
+    /// the message the pre-check would have produced. CustomerOrderService fixed exactly this and
+    /// documented it; the same three write paths here had been left as they were.
+    ///
+    /// The concurrency catch must stay first: DbUpdateConcurrencyException derives from
+    /// DbUpdateException, so the order below is load-bearing, not stylistic.
+    /// </summary>
+    private async Task SaveAsync(string duplicateMessage, string concurrencyMessage, CancellationToken cancellationToken)
+    {
+        try { await dbContext.SaveChangesAsync(cancellationToken); }
+        catch (DbUpdateConcurrencyException) { throw new ConcurrencyConflictException(concurrencyMessage); }
+        catch (DbUpdateException) { throw new BusinessConflictException(duplicateMessage); }
     }
 
     private IQueryable<Formulation> FormulationQuery() => dbContext.Formulations.AsNoTracking().Include(x => x.Materials).ThenInclude(x => x.RawMaterial);
